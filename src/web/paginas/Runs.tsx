@@ -163,7 +163,7 @@ export function Runs() {
       {runs.data && lista.length === 0 && <p className="vazio">Nenhum run ainda. Comece por “Novo run”.</p>}
       {lista.length > 0 && (
         <div className="tabela-rolagem">
-          <table className="tabela">
+          <table className="tabela tabela-cartoes">
             <thead>
               <tr>
                 <th>Estado</th>
@@ -183,17 +183,17 @@ export function Runs() {
                       <EtiquetaRun estado={r.estado} />
                     </Link>
                   </td>
-                  <td>
+                  <td data-rotulo="Modelo">
                     <div className="forte">{r.modeloNome}</div>
                     <div className="mudo pequeno">
                       {r.papel} · {r.modo}
                     </div>
                   </td>
-                  <td className="quebra">{r.projeto ?? <span className="mono pequeno">{r.cwd}</span>}</td>
-                  <td className="nowrap">{dataHora(r.inicio)}</td>
-                  <td className="nowrap">{r.estado === 'rodando' ? '…' : duracao(r.duracaoMs)}</td>
-                  <td className="nowrap">{tokensCompacto(totalTokens(r.usage))}</td>
-                  <td className="nowrap">
+                  <td className="quebra" data-rotulo="Projeto">{r.projeto ?? <span className="mono pequeno">{r.cwd}</span>}</td>
+                  <td className="nowrap" data-rotulo="Início">{dataHora(r.inicio)}</td>
+                  <td className="nowrap" data-rotulo="Duração">{r.estado === 'rodando' ? '…' : duracao(r.duracaoMs)}</td>
+                  <td className="nowrap" data-rotulo="Tokens">{tokensCompacto(totalTokens(r.usage))}</td>
+                  <td className="nowrap" data-rotulo="Custo">
                     {dolar(r.custoUsd)}
                     {r.custoOrigem === 'estimado' && <span className="mudo" title="Estimado pela tabela de preços"> *</span>}
                   </td>

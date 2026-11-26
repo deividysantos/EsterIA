@@ -1,4 +1,4 @@
-## PainelAgentes v2 (branch `v2`)
+## EsterIA (painel de agentes v2) — branch `main`
 
 Reescrita do painel de agentes. O plano e as fases estão em `docs/PLANO-V2.md`.
 

@@ -35,6 +35,8 @@ export interface Projeto {
 export interface Saude {
   ok: true;
   versao: string;
+  /** Commit com que o serviço subiu (null fora do git). */
+  commit: string | null;
   esquema: number;
   banco: string;
   iniciadoEm: string;

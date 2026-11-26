@@ -198,14 +198,14 @@ function LinhaExecucao({ e, decisao, itens }: { e: Execucao; decisao: DecisaoMod
             </span>
           )}
         </td>
-        <td>{e.tarefaCodigo ?? <span className="mudo">problema</span>}</td>
-        <td>{e.tentativa}</td>
-        <td>{e.modeloNome ?? <span className="mudo">—</span>}</td>
-        <td>
+        <td data-rotulo="Tarefa">{e.tarefaCodigo ?? <span className="mudo">problema</span>}</td>
+        <td data-rotulo="Tentativa">{e.tentativa}</td>
+        <td data-rotulo="Modelo">{e.modeloNome ?? <span className="mudo">—</span>}</td>
+        <td data-rotulo="Estado">
           <span className={`etiqueta etiqueta-exec-${e.estado}`}>{ROTULO_EXEC[e.estado]}</span>
         </td>
-        <td className="nowrap">{duracao(fim - new Date(e.inicio).getTime())}</td>
-        <td className="nowrap">{dolar(e.custoUsd)}</td>
+        <td className="nowrap" data-rotulo="Duração">{duracao(fim - new Date(e.inicio).getTime())}</td>
+        <td className="nowrap" data-rotulo="Custo">{dolar(e.custoUsd)}</td>
         <td>
           {e.runId && (
             <Link to={`/runs/${e.runId}`} className="link">
@@ -337,7 +337,7 @@ export function Problema() {
           <p className="mudo">{p.plano ? 'O plano não tem tarefas.' : 'Ainda sem plano.'}</p>
         ) : (
           <div className="tabela-rolagem">
-            <table className="tabela">
+            <table className="tabela tabela-cartoes">
               <thead>
                 <tr>
                   <th>Tarefa</th>
@@ -361,19 +361,19 @@ export function Problema() {
                         {t.motivo && <p className="erro pequeno">{t.motivo}</p>}
                       </details>
                     </td>
-                    <td>
+                    <td data-rotulo="Estado">
                       <span className={`etiqueta etiqueta-tarefa-${t.estado}`}>{ROTULO_TAREFA[t.estado]}</span>
                     </td>
-                    <td className="pequeno mono">
+                    <td className="pequeno mono" data-rotulo="Modelos">
                       {Object.entries(t.modelos).map(([papel, cod]) => (
                         <div key={papel}>
                           {papel}: {cod}
                         </div>
                       ))}
                     </td>
-                    <td>{t.revisaoIndependente ? 'sim' : 'não'}</td>
-                    <td>{t.dependeDe.join(', ') || '—'}</td>
-                    <td className="mono pequeno">{t.commit ? t.commit.slice(0, 10) : '—'}</td>
+                    <td data-rotulo="Revisão">{t.revisaoIndependente ? 'sim' : 'não'}</td>
+                    <td data-rotulo="Depende de">{t.dependeDe.join(', ') || '—'}</td>
+                    <td className="mono pequeno" data-rotulo="Commit">{t.commit ? t.commit.slice(0, 10) : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -390,7 +390,7 @@ export function Problema() {
           <p className="mudo">{p.estado === 'em_andamento' ? 'Esperando vaga na fila…' : 'Nada executado ainda.'}</p>
         ) : (
           <div className="tabela-rolagem">
-            <table className="tabela">
+            <table className="tabela tabela-cartoes">
               <thead>
                 <tr>
                   <th>Etapa</th>

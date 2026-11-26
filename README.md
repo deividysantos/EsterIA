@@ -40,6 +40,33 @@ Abre em http://127.0.0.1:4710. Um serviço atende todos os projetos. Na primeira
 1. **Provedores**: confira os CLIs detectados (ou informe o caminho manualmente).
 2. **Modelos**: ajuste o catálogo (família, notas de custo/velocidade/qualidade, preços, tags).
 
+## Atualizar
+
+```powershell
+painel atualizar
+```
+
+Confere se há etapa rodando na fila e se há mudança local no código (para nos dois casos; `--forcar` passa
+por cima), copia o banco para `~/.painel-agentes/backups` (guarda as 10 últimas), faz `git pull`, roda `npm ci`
+só se as dependências mudaram e refaz o build com o mesmo Node do comando. Depois, reinicie o `painel servidor`
+(as migrações do banco rodam na subida). O `painel doctor` avisa quando o serviço no ar está com código antigo.
+
+## Acessar pelo celular (Tailscale)
+
+O painel não tem login, então ele só aceita a própria máquina. Para abrir pelo celular dentro da sua tailnet:
+
+```powershell
+tailscale serve --bg 4710
+```
+```powershell
+painel servidor --permitir pc.tail1234.ts.net
+```
+
+Troque `pc.tail1234.ts.net` pelo nome que o `tailscale serve` mostrar e abra `https://pc.tail1234.ts.net` no
+celular. O serviço continua escutando só em `127.0.0.1`; o Tailscale entrega o tráfego da tailnet com HTTPS.
+Também dá para usar `PAINEL_HOSTS_PERMITIDOS` (vários separados por vírgula; `*.dominio` libera subdomínios).
+Libere só endereços que apenas você alcança.
+
 ## Usar em um projeto
 
 Na raiz do projeto:
@@ -69,10 +96,11 @@ De dentro de uma sessão do Claude Code no projeto, o MCP faz o mesmo: `criar_pr
 | `painel instalar` | Configuração da máquina (atalho, CLIs, MCP). |
 | `painel servidor` | Sobe o serviço (interface + motor da esteira). |
 | `painel init [pasta]` | Liga um projeto ao painel. |
+| `painel atualizar` | Atualiza o código com segurança (fila, cópia do banco, pull, build). |
 | `painel doctor` | Mostra o que falta (serviço, CLIs, MCP, projeto da pasta) e como resolver. |
 | `painel mcp` | Servidor MCP por stdio (chamado pelo Claude Code). |
 
-Variáveis: `PAINEL_PORTA` (4710), `PAINEL_URL`, `PAINEL_DADOS_DIR` (`~/.painel-agentes`), `PAINEL_BANCO`.
+Variáveis: `PAINEL_PORTA` (4710), `PAINEL_HOSTS_PERMITIDOS`, `PAINEL_URL`, `PAINEL_DADOS_DIR` (`~/.painel-agentes`), `PAINEL_BANCO`.
 
 ## Como funciona
 

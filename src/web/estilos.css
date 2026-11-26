@@ -1656,3 +1656,239 @@ select:focus {
 .contents {
   display: contents;
 }
+
+/* ---- Celular: menu compacto, tabelas em cartões, toque ---- */
+@media (max-width: 720px) {
+  .casca {
+    display: block;
+  }
+
+  .lateral {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 8px 12px 0;
+    border-bottom: 1px solid var(--borda);
+  }
+
+  .marca {
+    padding: 0;
+    font-size: 14px;
+  }
+
+  .lateral-rodape {
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Só o ponto colorido; o texto fica no title. */
+  .lateral-rodape .status {
+    font-size: 0;
+  }
+
+  .lateral-rodape .status::before {
+    margin: 0;
+    width: 10px;
+    height: 10px;
+  }
+
+  .lateral nav {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 2px;
+    margin: 0 -12px;
+    padding: 0 8px 6px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .lateral nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    white-space: nowrap;
+    padding: 8px 10px;
+  }
+
+  .conteudo {
+    padding: 14px 12px 32px;
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+
+  .cabecalho {
+    margin-bottom: 14px;
+  }
+
+  .cabecalho-acoes {
+    flex-wrap: wrap;
+  }
+
+  .grade-cartoes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cartao-valor {
+    font-size: 20px;
+  }
+
+  /* Evita o zoom automático do iOS ao focar campos. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  button,
+  .botao-link {
+    min-height: 38px;
+  }
+
+  button.pequeno {
+    min-height: 32px;
+  }
+
+  .painel-acao .acoes-linha button {
+    flex: 1 1 140px;
+  }
+
+  .bloco {
+    padding: 12px;
+  }
+
+  .titulo-run {
+    flex-wrap: wrap;
+  }
+
+  /* Tabelas marcadas viram uma lista de cartões, com o rótulo de cada campo. */
+  .tabela-cartoes {
+    min-width: 0;
+  }
+
+  .tabela-rolagem:has(.tabela-cartoes) {
+    overflow: visible;
+    border: none;
+    background: transparent;
+  }
+
+  .tabela-cartoes thead {
+    display: none;
+  }
+
+  .tabela-cartoes,
+  .tabela-cartoes tbody,
+  .tabela-cartoes tr,
+  .tabela-cartoes td {
+    display: block;
+    width: 100%;
+  }
+
+  .tabela-cartoes tr {
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+    padding: 8px 12px;
+    margin-bottom: 8px;
+  }
+
+  .tabela-cartoes td {
+    border: none;
+    padding: 3px 0;
+    text-align: left;
+  }
+
+  .tabela-cartoes td[data-rotulo]::before {
+    content: attr(data-rotulo);
+    display: inline-block;
+    min-width: 88px;
+    color: var(--texto-mudo);
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  .tabela-cartoes td:empty {
+    display: none;
+  }
+
+  .tabela-cartoes tr.exec-detalhe {
+    margin-top: -6px;
+  }
+
+  .tabela-cartoes tr.exec-detalhe td::before {
+    content: none;
+  }
+
+  /* A linha inteira continua clicável nos cartões. */
+  .tabela-cartoes tr.linha-clicavel:hover td {
+    background: transparent;
+  }
+
+  .item-parecer {
+    flex-direction: column;
+  }
+
+  .linha-form {
+    flex-wrap: wrap;
+  }
+
+  .barra-acoes input {
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  /* Status ao lado do nome, na mesma linha. */
+  .lateral-rodape {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  /* Cartões compactos: o primeiro campo é o título; os demais ficam lado a lado. */
+  .tabela-cartoes td {
+    display: inline-block;
+    width: auto;
+    margin-right: 14px;
+    vertical-align: top;
+  }
+
+  .tabela-cartoes td:first-child {
+    display: block;
+    width: 100%;
+    margin: 0 0 2px;
+  }
+
+  .tabela-cartoes td[data-rotulo]::before {
+    content: attr(data-rotulo) ': ';
+    min-width: 0;
+    margin-right: 2px;
+    font-family: var(--fonte);
+  }
+
+  .tabela-cartoes tr.exec-detalhe td {
+    display: block;
+    width: 100%;
+  }
+}
+
+.barra-versao label,
+.barra-versao select {
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .barra-versao,
+  .barra-versao label,
+  .barra-acoes {
+    width: 100%;
+  }
+}

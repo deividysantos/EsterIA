@@ -34,9 +34,11 @@ export function Layout() {
         </nav>
         <div className="lateral-rodape">
           {saude.isSuccess ? (
-            <span className="status status-ok">Serviço no ar · v{saude.data.versao}</span>
+            <span className="status status-ok" title={`Serviço no ar · v${saude.data.versao}${saude.data.commit ? ` · ${saude.data.commit}` : ''}`}>
+              Serviço no ar · v{saude.data.versao}
+              {saude.data.commit ? ` · ${saude.data.commit}` : ''}</span>
           ) : saude.isError ? (
-            <span className="status status-erro">Serviço fora do ar</span>
+            <span className="status status-erro" title="Serviço fora do ar">Serviço fora do ar</span>
           ) : (
             <span className="status">Conectando…</span>
           )}

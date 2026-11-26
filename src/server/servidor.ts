@@ -11,6 +11,7 @@ import { AoVivo } from './aoVivo.js';
 import { marcarInterrompidos } from './db/runs.js';
 import { Executor } from './runs/executor.js';
 import { Motor } from './motor/motor.js';
+import { lerHostsPermitidos } from './hosts.js';
 import { importarCotasCodex } from './provedores/cotaCodex.js';
 
 export interface OpcoesServidor {
@@ -22,11 +23,15 @@ export interface OpcoesServidor {
   verificarProvedores?: boolean;
   /** Liga o motor da esteira (padrão: sim). */
   iniciarMotor?: boolean;
+  /** Hosts extras aceitos pela API (além de PAINEL_HOSTS_PERMITIDOS). */
+  permitir?: readonly string[];
 }
 
 export interface ServidorAtivo {
   url: string;
   porta: number;
+  /** Hosts além da própria máquina que a API aceita. */
+  hostsPermitidos: string[];
   db: Banco;
   executor: Executor;
   fechar(): Promise<void>;
@@ -41,7 +46,10 @@ export async function iniciarServidor(opcoes: OpcoesServidor): Promise<ServidorA
   const aoVivo = new AoVivo();
   const executor = new Executor(db, aoVivo);
   const motor = new Motor(db, executor, aoVivo, { dadosDir: path.dirname(path.resolve(opcoes.caminhoBanco)) });
-  const app = criarApp({ db, caminhoBanco: opcoes.caminhoBanco, webDir: opcoes.webDir ?? null, aoVivo, executor, motor });
+  // Escutando num IP específico (ex.: o do Tailscale), esse IP também precisa ser aceito.
+  const extras = [...(opcoes.permitir ?? []), ...(host !== HOST_PADRAO && host !== '0.0.0.0' && host !== '::' ? [host] : [])];
+  const hostsPermitidos = lerHostsPermitidos(process.env, extras);
+  const app = criarApp({ db, caminhoBanco: opcoes.caminhoBanco, webDir: opcoes.webDir ?? null, aoVivo, executor, motor, hostsPermitidos });
 
   let server: ServerType;
   try {
@@ -84,6 +92,7 @@ export async function iniciarServidor(opcoes: OpcoesServidor): Promise<ServidorA
   return {
     url: `http://${hostUrl}:${porta}`,
     porta,
+    hostsPermitidos,
     db,
     executor,
     async fechar() {

@@ -10,7 +10,7 @@ import { listarProjetos } from '../server/db/projetos.js';
 import { obterEsteira } from '../server/db/esteiras.js';
 import { obterCaminhoBanco } from '../server/config.js';
 import { rodarCurto, type Env } from '../server/provedores/executavel.js';
-import { VERSAO } from '../server/versao.js';
+import { COMMIT, VERSAO } from '../server/versao.js';
 import { api, ErroConexao, lerMarcador, projetoDaPasta, urlPainel } from './comum.js';
 import { INICIO_BLOCO } from './init.js';
 import { caminhosInstalacao, estaNoPath, NOME_MCP, nodeAtende, type Linha, type Rodar } from './instalar.js';
@@ -59,7 +59,12 @@ export async function doctor(
   try {
     const r = await api<Saude>('GET', '/api/saude', undefined, { url, timeoutMs: 3000 });
     if (r.status !== 200) add('erro', `Serviço em ${url} respondeu ${r.status}.`);
-    else if (r.corpo.versao !== VERSAO) add('aviso', `Serviço no ar em ${url}, mas na versão ${r.corpo.versao} (esta é ${VERSAO}).`, 'Reinicie o serviço para usar a versão nova.');
+    else if (r.corpo.versao !== VERSAO || (COMMIT && r.corpo.commit && r.corpo.commit !== COMMIT))
+      add(
+        'aviso',
+        `Serviço no ar em ${url}, mas com código antigo (${r.corpo.versao} ${r.corpo.commit ?? ''}; a pasta está em ${VERSAO} ${COMMIT ?? ''}).`,
+        'Reinicie o serviço (Ctrl+C e "painel servidor") quando a fila estiver parada.'
+      );
     else add('ok', `Serviço no ar em ${url}`);
     const pv = await api<Provedor[]>('GET', '/api/provedores', undefined, { url });
     if (pv.status === 200) provedores = pv.corpo;

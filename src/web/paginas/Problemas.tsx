@@ -122,7 +122,7 @@ export function Problemas() {
       {lista.data && itens.length === 0 && <p className="vazio">Nenhum problema por aqui. Comece por “Novo problema”.</p>}
       {itens.length > 0 && (
         <div className="tabela-rolagem">
-          <table className="tabela">
+          <table className="tabela tabela-cartoes">
             <thead>
               <tr>
                 <th>Problema</th>
@@ -144,14 +144,14 @@ export function Problemas() {
                       {p.esperando && ` · esperando: ${p.esperando.etapaNome}`}
                     </div>
                   </td>
-                  <td>
+                  <td data-rotulo="Estado">
                     <EtiquetaProblema estado={p.estado} />
                   </td>
-                  <td>
+                  <td data-rotulo="Tarefas">
                     <Progresso p={p} />
                   </td>
-                  <td className="nowrap">{dolar(p.custoUsd)}</td>
-                  <td className="nowrap">{dataHora(p.atualizadoEm)}</td>
+                  <td className="nowrap" data-rotulo="Custo">{dolar(p.custoUsd)}</td>
+                  <td className="nowrap" data-rotulo="Atualizado">{dataHora(p.atualizadoEm)}</td>
                 </tr>
               ))}
             </tbody>

@@ -19,7 +19,8 @@ import { Executor } from './runs/executor.js';
 import type { Env } from './provedores/executavel.js';
 import { versaoEsquema, type Banco } from './db/banco.js';
 import { ErroDominio, STATUS_POR_CODIGO } from './erros.js';
-import { VERSAO } from './versao.js';
+import { headerHostAceito, lerHostsPermitidos, origemAceita } from './hosts.js';
+import { COMMIT, VERSAO } from './versao.js';
 
 export interface OpcoesApp {
   db: Banco;
@@ -33,29 +34,12 @@ export interface OpcoesApp {
   executor?: Executor;
   /** Sem motor informado, cria um parado (sem laço da fila): serve para testes da API. */
   motor?: Motor;
+  /** Hosts além da própria máquina que podem usar a API (ver hosts.ts). */
+  hostsPermitidos?: readonly string[];
 }
 
 export type Variaveis = { Variables: { db: Banco; env: Env; aoVivo: AoVivo; executor: Executor; motor: Motor } };
 
-const HOSTS_LOCAIS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
-
-function hostLocal(valor: string | undefined | null): boolean {
-  if (!valor) return false;
-  try {
-    return HOSTS_LOCAIS.has(new URL(`http://${valor}`).hostname);
-  } catch {
-    return false;
-  }
-}
-
-function origemLocal(origem: string): boolean {
-  try {
-    const u = new URL(origem);
-    return (u.protocol === 'http:' || u.protocol === 'https:') && HOSTS_LOCAIS.has(u.hostname);
-  } catch {
-    return false;
-  }
-}
 
 export function responderErro(c: Context, err: unknown) {
   if (err instanceof ErroDominio) {
@@ -79,6 +63,7 @@ export function criarApp(opcoes: OpcoesApp): Hono<Variaveis> {
   const { db, caminhoBanco } = opcoes;
   const iniciadoEm = (opcoes.iniciadoEm ?? new Date()).toISOString();
   const env = opcoes.env ?? process.env;
+  const hostsPermitidos = opcoes.hostsPermitidos ?? lerHostsPermitidos(env);
   const aoVivo = opcoes.aoVivo ?? new AoVivo();
   const executor = opcoes.executor ?? new Executor(db, aoVivo, env);
   const motor = opcoes.motor ?? new Motor(db, executor, aoVivo, { env, dadosDir: path.join(os.tmpdir(), 'painel-agentes') });
@@ -88,11 +73,11 @@ export function criarApp(opcoes: OpcoesApp): Hono<Variaveis> {
 
   // A API só atende pelo host local (contra DNS rebinding) e só aceita escrita de páginas locais.
   app.use('/api/*', async (c, next) => {
-    if (!hostLocal(c.req.header('host'))) {
+    if (!headerHostAceito(c.req.header('host'), hostsPermitidos)) {
       throw new ErroDominio('ORIGEM_PROIBIDA', 'Host não permitido.');
     }
     const origem = c.req.header('origin');
-    if (c.req.method !== 'GET' && c.req.method !== 'HEAD' && origem && !origemLocal(origem)) {
+    if (c.req.method !== 'GET' && c.req.method !== 'HEAD' && origem && !origemAceita(origem, hostsPermitidos)) {
       throw new ErroDominio('ORIGEM_PROIBIDA', 'Origem não permitida.');
     }
     c.set('db', db);
@@ -107,6 +92,7 @@ export function criarApp(opcoes: OpcoesApp): Hono<Variaveis> {
     const corpo: Saude = {
       ok: true,
       versao: VERSAO,
+      commit: COMMIT,
       esquema: versaoEsquema(db),
       banco: caminhoBanco,
       iniciadoEm,
