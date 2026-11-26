@@ -294,6 +294,46 @@ describe('motor: falhas e retentativas', () => {
     assert.match(segunda.prompt, /Revisão cruzada reprovou:\n- \[alta\] a\.txt:1 — falta a linha 2/);
     assert.ok(segunda.argv.includes('--resume'));
     assert.match(execs[3]!.feedback!, /falta a linha 2/);
+
+    // O revisor da 2ª rodada retoma a própria sessão, com o diff atual e o pedido de só conferir o que mudou.
+    const revisoes = chamadas().filter((c) => c.prompt.includes(SE_PARECER));
+    assert.equal(revisoes.length, 2);
+    assert.ok(!revisoes[0]!.argv.includes('--resume'), '1ª revisão começa do zero');
+    const sessaoRev = obterRun(amb.db, execs[2]!.runId!).sessao!;
+    const i = revisoes[1]!.argv.indexOf('--resume');
+    assert.deepEqual(revisoes[1]!.argv.slice(i, i + 2), ['--resume', sessaoRev]);
+    assert.match(revisoes[1]!.prompt, /foi refeito depois do seu parecer anterior/);
+    assert.match(revisoes[1]!.prompt, /\+a/);
+  });
+
+  it('crítica reprova o plano: na 2ª rodada o crítico retoma a sessão com o plano novo', async () => {
+    await montar((def, ids) => {
+      const critica = def.etapas.find((e) => e.id === 'criticar-plano')!;
+      critica.ativa = true;
+      critica.agente = { modo: 'fixo', modeloId: ids.revisor };
+      def.etapas.find((e) => e.id === 'aprovar-plano')!.ativa = false;
+    });
+    roteiro([
+      { se: SE_PLANO, resposta: PLANO([DUAS_TAREFAS[0]!]) },
+      { se: SE_PARECER, resposta: PARECER(false), vezes: 1 },
+      { se: SE_PARECER, resposta: PARECER(true), vezes: 1 },
+      { se: SE_EXEC, resposta: RESUMO(['a.txt']), escrever: { 'a.txt': 'a\n' } },
+      { se: SE_PARECER, resposta: PARECER(true) },
+    ]);
+    criar();
+    await rodar();
+    const execs = listarExecucoes(amb.db, problemaId).filter((e) => !e.tarefaCodigo);
+    assert.deepEqual(
+      execs.map((e) => `${e.etapaId}#${e.tentativa}:${e.estado}`),
+      ['planejar#1:concluida', 'criticar-plano#1:reprovada', 'planejar#2:concluida', 'criticar-plano#2:concluida']
+    );
+    const criticas = chamadas().filter((c) => c.prompt.includes(SE_PARECER) && !c.prompt.includes('+a'));
+    assert.ok(!criticas[0]!.argv.includes('--resume'));
+    const sessao = obterRun(amb.db, execs[1]!.runId!).sessao!;
+    const i = criticas[1]!.argv.indexOf('--resume');
+    assert.deepEqual(criticas[1]!.argv.slice(i, i + 2), ['--resume', sessao]);
+    assert.match(criticas[1]!.prompt, /foi refeito depois do seu parecer anterior/);
+    assert.match(criticas[1]!.prompt, /Criar a/, 'manda o plano atual');
   });
 
   it('passa do máximo: bloqueia; tentar de novo zera; cancelar a tarefa segue para a próxima', async () => {

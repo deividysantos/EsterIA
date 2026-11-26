@@ -55,7 +55,15 @@ import type { Env } from '../provedores/executavel.js';
 import type { Executor } from '../runs/executor.js';
 import { rodarComando } from './comando.js';
 import { arquivosDaTarefa, arquivosAlterados, commitar, diffDosArquivos, raizGit, relativosARaiz } from './git.js';
-import { catalogoModelos, promptCompleto, promptRetomada, respostasMarkdown, SCHEMAS_JSON, valoresVariaveis } from './prompts.js';
+import {
+  catalogoModelos,
+  promptCompleto,
+  promptRetomada,
+  promptRevisaoRetomada,
+  respostasMarkdown,
+  SCHEMAS_JSON,
+  valoresVariaveis,
+} from './prompts.js';
 import { descreverCriterios, pontuar } from './pontuacao.js';
 import { aposFalha, blocoTarefas, decidir, type Resultado } from './proximo.js';
 import type { CandidatoPontuado, Criterios, OrigemDecisao, PreviaPapel } from '../../shared/criterios.js';
@@ -89,6 +97,11 @@ interface Ativo {
 }
 
 const RETOMAVEIS = new Set(['planejar', 'executar', 'prompt_livre']);
+/**
+ * Crítico e revisor de novo depois de o trabalho ser refeito: retomam a própria sessão, que já tem o
+ * código explorado e o parecer anterior, em vez de reler o projeto do zero a cada rodada.
+ */
+const REVISOES = new Set(['criticar_plano', 'revisar']);
 const CHAVE_LIMITES = 'fila.limites';
 
 function textoParecer(p: Parecer): string {
@@ -558,7 +571,15 @@ export class Motor {
     // Mesmo agente e mesmo modelo de novo: retoma a sessão e manda só o retorno.
     let sessao: string | null = null;
     let prompt = promptCompleto(etapa, valores);
-    if (anteriorEtapa?.runId && RETOMAVEIS.has(etapa.tipo)) {
+    if (anteriorEtapa?.runId && REVISOES.has(etapa.tipo)) {
+      const runAnt = obterRun(this.db, anteriorEtapa.runId);
+      // Só a partir de um parecer que terminou; sessão de run que falhou pode estar quebrada.
+      const terminou = anteriorEtapa.estado === 'reprovada' || anteriorEtapa.estado === 'concluida';
+      if (terminou && runAnt.sessao && runAnt.modeloId === modelo.id) {
+        sessao = runAnt.sessao;
+        prompt = promptRevisaoRetomada(etapa, valores);
+      }
+    } else if (anteriorEtapa?.runId && RETOMAVEIS.has(etapa.tipo)) {
       const runAnt = obterRun(this.db, anteriorEtapa.runId);
       if (runAnt.sessao && runAnt.modeloId === modelo.id) {
         const extra =

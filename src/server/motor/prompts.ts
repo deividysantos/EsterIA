@@ -159,3 +159,17 @@ export function promptRetomada(etapa: Etapa, valores: Record<string, string>, ex
   if (formato) partes.push(formato);
   return partes.filter(Boolean).join('\n\n');
 }
+
+/**
+ * Crítico ou revisor na mesma sessão depois de o trabalho ser refeito: manda a versão atual (plano, diff…)
+ * e pede para conferir os próprios apontamentos e só o que mudou, sem reexplorar o projeto.
+ */
+export function promptRevisaoRetomada(etapa: Etapa, valores: Record<string, string>): string {
+  const aviso = [
+    `Tentativa ${valores.tentativa}. O trabalho foi refeito depois do seu parecer anterior, que está nesta conversa.`,
+    'Abaixo está a versão atual. Confira se cada apontamento seu foi resolvido e procure problemas novos no que mudou.',
+    'Não reexplore o que você já conferiu e continua igual: abra um arquivo só se ele mudou ou para confirmar uma correção.',
+  ].join(' ');
+  const formato = INSTRUCOES_SAIDA[etapa.saida];
+  return [aviso, renderizar(etapa.prompt, valores), formato].filter(Boolean).join('\n\n');
+}
