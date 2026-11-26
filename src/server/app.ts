@@ -7,6 +7,8 @@ import { z } from 'zod';
 
 import type { ErroApi, Saude } from '../shared/projetos.js';
 import { rotasProjetos } from './api/projetos.js';
+import { rotasModelos, rotasProvedores } from './api/provedores.js';
+import type { Env } from './provedores/executavel.js';
 import { versaoEsquema, type Banco } from './db/banco.js';
 import { ErroDominio, STATUS_POR_CODIGO } from './erros.js';
 import { VERSAO } from './versao.js';
@@ -17,9 +19,11 @@ export interface OpcoesApp {
   /** Pasta com o build da interface (`dist/web`). Sem ela, só a API responde. */
   webDir?: string | null;
   iniciadoEm?: Date;
+  /** Ambiente usado para detectar e chamar os CLIs (os testes passam um PATH falso). */
+  env?: Env;
 }
 
-export type Variaveis = { Variables: { db: Banco } };
+export type Variaveis = { Variables: { db: Banco; env: Env } };
 
 const HOSTS_LOCAIS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
 
@@ -62,6 +66,7 @@ export function responderErro(c: Context, err: unknown) {
 export function criarApp(opcoes: OpcoesApp): Hono<Variaveis> {
   const { db, caminhoBanco } = opcoes;
   const iniciadoEm = (opcoes.iniciadoEm ?? new Date()).toISOString();
+  const env = opcoes.env ?? process.env;
   const app = new Hono<Variaveis>();
 
   app.onError((err, c) => responderErro(c, err));
@@ -76,6 +81,7 @@ export function criarApp(opcoes: OpcoesApp): Hono<Variaveis> {
       throw new ErroDominio('ORIGEM_PROIBIDA', 'Origem não permitida.');
     }
     c.set('db', db);
+    c.set('env', env);
     await next();
   });
 
@@ -91,6 +97,8 @@ export function criarApp(opcoes: OpcoesApp): Hono<Variaveis> {
   });
 
   app.route('/api/projetos', rotasProjetos());
+  app.route('/api/provedores', rotasProvedores());
+  app.route('/api/modelos', rotasModelos());
 
   app.all('/api/*', (c) =>
     c.json({ erro: 'Rota não encontrada.', codigo: 'NAO_ENCONTRADO' } satisfies ErroApi, 404)

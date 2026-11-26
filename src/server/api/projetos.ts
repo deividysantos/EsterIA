@@ -4,14 +4,7 @@ import { edicaoProjetoSchema, idProjetoSchema, novoProjetoSchema } from '../../s
 import type { Variaveis } from '../app.js';
 import { criarProjeto, editarProjeto, listarProjetos, obterProjeto } from '../db/projetos.js';
 import { ErroDominio } from '../erros.js';
-
-async function lerJson(req: Request): Promise<unknown> {
-  try {
-    return await req.json();
-  } catch {
-    throw new ErroDominio('VALIDACAO', 'Corpo da requisição não é um JSON válido.');
-  }
-}
+import { lerJson } from './util.js';
 
 export function rotasProjetos() {
   const r = new Hono<Variaveis>();

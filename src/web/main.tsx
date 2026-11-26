@@ -7,6 +7,8 @@ import { Layout } from './componentes/Layout';
 import './estilos.css';
 import { EmBreve } from './paginas/EmBreve';
 import { Inicio } from './paginas/Inicio';
+import { Modelos } from './paginas/Modelos';
+import { Provedores } from './paginas/Provedores';
 import { Projetos } from './paginas/Projetos';
 
 const consultas = new QueryClient({
@@ -20,16 +22,8 @@ const rotas = createBrowserRouter([
     children: [
       { index: true, element: <Inicio /> },
       { path: 'projetos', element: <Projetos /> },
-      {
-        path: 'provedores',
-        element: (
-          <EmBreve
-            titulo="Provedores e modelos"
-            fase="F1"
-            texto="Caminhos dos CLIs (Claude, Cursor, Antigravity, Codex), detecção de versão, catálogo de modelos com família, atributos e preços."
-          />
-        ),
-      },
+      { path: 'provedores', element: <Provedores /> },
+      { path: 'modelos', element: <Modelos /> },
       {
         path: 'esteiras',
         element: (

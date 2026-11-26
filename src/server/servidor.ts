@@ -5,12 +5,15 @@ import { serve, type ServerType } from '@hono/node-server';
 import { criarApp } from './app.js';
 import { abrirBanco, type Banco } from './db/banco.js';
 import { HOST_PADRAO } from './config.js';
+import { verificarTodos } from './provedores/servico.js';
 
 export interface OpcoesServidor {
   caminhoBanco: string;
   porta: number;
   host?: string;
   webDir?: string | null;
+  /** Detecta e verifica os CLIs logo depois de subir (padrão: sim). */
+  verificarProvedores?: boolean;
 }
 
 export interface ServidorAtivo {
@@ -37,6 +40,15 @@ export async function iniciarServidor(opcoes: OpcoesServidor): Promise<ServidorA
     throw err;
   }
 
+  // Em segundo plano: a interface já abre enquanto os --version rodam.
+  const verificacao =
+    opcoes.verificarProvedores === false
+      ? Promise.resolve()
+      : verificarTodos(db).then(
+          () => undefined,
+          (err: unknown) => console.error('[painel] falha ao verificar provedores:', err)
+        );
+
   const porta = (server.address() as AddressInfo).port;
   const hostUrl = host.includes(':') ? `[${host}]` : host;
 
@@ -52,6 +64,7 @@ export async function iniciarServidor(opcoes: OpcoesServidor): Promise<ServidorA
         if ('closeAllConnections' in server) server.closeAllConnections();
         server.close(() => resolve());
       });
+      await verificacao;
       db.close();
     },
   };

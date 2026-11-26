@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import type { Projeto } from '../src/shared/projetos.ts';
 import { criarApp } from '../src/server/app.ts';
-import { abrirBanco, type Banco } from '../src/server/db/banco.ts';
+import { abrirBanco, VERSAO_ESQUEMA, type Banco } from '../src/server/db/banco.ts';
 import { iniciarServidor } from '../src/server/servidor.ts';
 
 const RAIZ_A = path.resolve(os.tmpdir(), 'proj-a');
@@ -39,7 +39,7 @@ describe('API', () => {
     assert.equal(res.status, 200);
     const corpo = (await res.json()) as { ok: boolean; esquema: number; versao: string };
     assert.equal(corpo.ok, true);
-    assert.equal(corpo.esquema, 1);
+    assert.equal(corpo.esquema, VERSAO_ESQUEMA);
     assert.match(corpo.versao, /^2\./);
   });
 
@@ -133,7 +133,7 @@ describe('interface estática', () => {
 describe('servidor HTTP', () => {
   it('sobe numa porta livre, responde e encerra', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'painel-srv-'));
-    const s = await iniciarServidor({ caminhoBanco: path.join(dir, 'painel.db'), porta: 0 });
+    const s = await iniciarServidor({ caminhoBanco: path.join(dir, 'painel.db'), porta: 0, verificarProvedores: false });
     try {
       assert.ok(s.porta > 0);
       const res = await fetch(`${s.url}/api/saude`);
@@ -146,10 +146,10 @@ describe('servidor HTTP', () => {
 
   it('falha com erro claro se a porta estiver ocupada', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'painel-srv-'));
-    const a = await iniciarServidor({ caminhoBanco: path.join(dir, 'a.db'), porta: 0 });
+    const a = await iniciarServidor({ caminhoBanco: path.join(dir, 'a.db'), porta: 0, verificarProvedores: false });
     try {
       await assert.rejects(
-        iniciarServidor({ caminhoBanco: path.join(dir, 'b.db'), porta: a.porta }),
+        iniciarServidor({ caminhoBanco: path.join(dir, 'b.db'), porta: a.porta, verificarProvedores: false }),
         /EADDRINUSE/
       );
     } finally {
