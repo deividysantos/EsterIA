@@ -10,7 +10,7 @@ import { parsearArgs } from '../src/cli/painel.ts';
 import { criarApp } from '../src/server/app.ts';
 import { abrirBanco } from '../src/server/db/banco.ts';
 import { headerHostAceito, hostAceito, lerHostsPermitidos, normalizarHost, origemAceita } from '../src/server/hosts.ts';
-import { iniciarServidor } from '../src/server/servidor.ts';
+import { iniciarServidor, separarHosts } from '../src/server/servidor.ts';
 
 let tmp: string;
 before(() => {
@@ -74,6 +74,41 @@ describe('hosts permitidos', () => {
     } finally {
       await s.fechar();
     }
+  });
+});
+
+describe('servidor em vários endereços', () => {
+  it('separa a lista de hosts', () => {
+    assert.deepEqual(separarHosts(undefined), ['127.0.0.1']);
+    assert.deepEqual(separarHosts(' 127.0.0.1 , 100.1.2.3,127.0.0.1'), ['127.0.0.1', '100.1.2.3']);
+    assert.deepEqual(separarHosts(['[::1]']), ['::1']);
+    assert.deepEqual(separarHosts(''), ['127.0.0.1']);
+  });
+
+  it('escuta em todos na mesma porta, libera os IPs e fecha tudo', async () => {
+    const s = await iniciarServidor({
+      caminhoBanco: path.join(tmp, 'multi.db'),
+      porta: 0,
+      host: '127.0.0.1,127.0.0.2',
+      verificarProvedores: false,
+      iniciarMotor: false,
+    });
+    try {
+      assert.equal(s.urls.length, 2);
+      assert.equal(s.urls[1], s.urls[0]!.replace('127.0.0.1', '127.0.0.2'));
+      assert.ok(s.hostsPermitidos.includes('127.0.0.2'));
+      for (const u of s.urls) assert.equal((await fetch(`${u}/api/saude`)).status, 200);
+    } finally {
+      await s.fechar();
+    }
+    await assert.rejects(fetch(`${s.urls[1]}/api/saude`));
+  });
+
+  it('endereço que não existe na máquina dá erro claro e não deixa nada aberto', async () => {
+    await assert.rejects(
+      iniciarServidor({ caminhoBanco: path.join(tmp, 'ruim.db'), porta: 0, host: '127.0.0.1,203.0.113.77', verificarProvedores: false, iniciarMotor: false }),
+      /203\.0\.113\.77 não existe nesta máquina/
+    );
   });
 });
 

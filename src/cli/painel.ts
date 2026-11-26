@@ -21,9 +21,10 @@ Uso:
       Uma vez por máquina: confere Node e build, cria o atalho "painel", detecta os CLIs
       (Claude Code, Cursor, Antigravity, Codex) e registra o MCP no Claude Code.
 
-  painel servidor [--porta <n>] [--host <h>] [--banco <arquivo>] [--permitir <host>[,<host>]]
+  painel servidor [--porta <n>] [--host <h>[,<h>]] [--banco <arquivo>] [--permitir <host>[,<host>]]
       Sobe o serviço (interface + motor da esteira). Um só atende todos os projetos.
-      Celular via Tailscale: "tailscale serve --bg 4710" e --permitir <pc>.<tailnet>.ts.net.
+      Celular via Tailscale: --host 127.0.0.1,<ip-tailscale> --permitir <nome-magicdns>
+      e abra http://<nome-magicdns>:4710 no celular.
 
   painel init [pasta] [--id <id>] [--nome <nome>] [--esteira padrao|nenhuma|copiar:<id>] [--sem-claude-md]
       Na pasta de um projeto: cadastra no painel, cria a esteira, grava .agentes/projeto.json
@@ -106,7 +107,7 @@ async function servidor(cmd: Extract<Comando, { tipo: 'servidor' }>): Promise<nu
     webDir,
     ...(cmd.permitir ? { permitir: cmd.permitir } : {}),
   });
-  process.stdout.write(`Painel de agentes ${VERSAO} em ${s.url}\n`);
+  process.stdout.write(`Painel de agentes ${VERSAO} em ${s.urls.join(' e ')}\n`);
   if (s.hostsPermitidos.length) {
     process.stdout.write(
       `Também aceita: ${s.hostsPermitidos.join(', ')} (o painel não tem login: libere só endereços da sua rede privada).\n`

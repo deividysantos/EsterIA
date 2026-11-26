@@ -17,7 +17,11 @@ import { importarCotasCodex } from './provedores/cotaCodex.js';
 export interface OpcoesServidor {
   caminhoBanco: string;
   porta: number;
-  host?: string;
+  /**
+   * Endereço(s) em que o serviço escuta. Aceita vários, para continuar na própria máquina e também
+   * no IP do Tailscale: `127.0.0.1,100.x.y.z`. Padrão: só 127.0.0.1.
+   */
+  host?: string | readonly string[];
   webDir?: string | null;
   /** Detecta e verifica os CLIs logo depois de subir (padrão: sim). */
   verificarProvedores?: boolean;
@@ -29,6 +33,8 @@ export interface OpcoesServidor {
 
 export interface ServidorAtivo {
   url: string;
+  /** Um endereço por host em que o serviço escuta (o primeiro é o `url`). */
+  urls: string[];
   porta: number;
   /** Hosts além da própria máquina que a API aceita. */
   hostsPermitidos: string[];
@@ -37,9 +43,15 @@ export interface ServidorAtivo {
   fechar(): Promise<void>;
 }
 
+/** `"127.0.0.1, 100.1.2.3"` ou lista → lista sem repetição; vazio vira 127.0.0.1. */
+export function separarHosts(host: string | readonly string[] | undefined): string[] {
+  const lista = (typeof host === 'string' ? host.split(',') : (host ?? [])).map((h) => h.trim().replace(/^\[|\]$/g, '')).filter(Boolean);
+  return lista.length ? [...new Set(lista)] : [HOST_PADRAO];
+}
+
 /** Abre o banco, sobe o HTTP e devolve um handle para encerrar tudo. */
 export async function iniciarServidor(opcoes: OpcoesServidor): Promise<ServidorAtivo> {
-  const host = opcoes.host ?? HOST_PADRAO;
+  const hosts = separarHosts(opcoes.host);
   const db = abrirBanco(opcoes.caminhoBanco);
   const interrompidos = marcarInterrompidos(db);
   if (interrompidos) console.warn(`[painel] ${interrompidos} run(s) marcados como interrompidos (o serviço caiu durante a execução).`);
@@ -47,17 +59,36 @@ export async function iniciarServidor(opcoes: OpcoesServidor): Promise<ServidorA
   const executor = new Executor(db, aoVivo);
   const motor = new Motor(db, executor, aoVivo, { dadosDir: path.dirname(path.resolve(opcoes.caminhoBanco)) });
   // Escutando num IP específico (ex.: o do Tailscale), esse IP também precisa ser aceito.
-  const extras = [...(opcoes.permitir ?? []), ...(host !== HOST_PADRAO && host !== '0.0.0.0' && host !== '::' ? [host] : [])];
+  const extras = [...(opcoes.permitir ?? []), ...hosts.filter((h) => !['127.0.0.1', 'localhost', '::1', '0.0.0.0', '::'].includes(h))];
   const hostsPermitidos = lerHostsPermitidos(process.env, extras);
   const app = criarApp({ db, caminhoBanco: opcoes.caminhoBanco, webDir: opcoes.webDir ?? null, aoVivo, executor, motor, hostsPermitidos });
 
-  let server: ServerType;
+  // Um servidor HTTP por endereço, todos na mesma porta (com porta 0, a do primeiro vale para os outros).
+  const servidores: ServerType[] = [];
+  const fecharServidores = () =>
+    Promise.all(
+      servidores.map(
+        (s) =>
+          new Promise<void>((resolve) => {
+            if ('closeAllConnections' in s) s.closeAllConnections();
+            s.close(() => resolve());
+          })
+      )
+    );
+  let porta = opcoes.porta;
   try {
-    server = await new Promise<ServerType>((resolve, reject) => {
-      const s = serve({ fetch: app.fetch, port: opcoes.porta, hostname: host }, () => resolve(s));
-      s.once('error', reject);
-    });
+    for (const h of hosts) {
+      const s = await new Promise<ServerType>((resolve, reject) => {
+        const novo = serve({ fetch: app.fetch, port: porta, hostname: h }, () => resolve(novo));
+        novo.once('error', (err: NodeJS.ErrnoException) =>
+          reject(err.code === 'EADDRNOTAVAIL' ? new Error(`O endereço ${h} não existe nesta máquina (${err.code}).`) : err)
+        );
+      });
+      servidores.push(s);
+      porta = (s.address() as AddressInfo).port;
+    }
   } catch (err) {
+    await fecharServidores();
     db.close();
     throw err;
   }
@@ -85,12 +116,12 @@ export async function iniciarServidor(opcoes: OpcoesServidor): Promise<ServidorA
   const timerCodex = setInterval(lerCodex, 5 * 60_000);
   timerCodex.unref();
 
-  const porta = (server.address() as AddressInfo).port;
-  const hostUrl = host.includes(':') ? `[${host}]` : host;
+  const urls = hosts.map((h) => `http://${h.includes(':') ? `[${h}]` : h}:${porta}`);
 
   let fechado = false;
   return {
-    url: `http://${hostUrl}:${porta}`,
+    url: urls[0]!,
+    urls,
     porta,
     hostsPermitidos,
     db,
@@ -102,10 +133,7 @@ export async function iniciarServidor(opcoes: OpcoesServidor): Promise<ServidorA
       await motorPronto;
       await motor.parar();
       await executor.encerrar();
-      await new Promise<void>((resolve) => {
-        if ('closeAllConnections' in server) server.closeAllConnections();
-        server.close(() => resolve());
-      });
+      await fecharServidores();
       await verificacao;
       db.close();
     },

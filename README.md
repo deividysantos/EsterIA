@@ -53,19 +53,22 @@ só se as dependências mudaram e refaz o build com o mesmo Node do comando. Dep
 
 ## Acessar pelo celular (Tailscale)
 
-O painel não tem login, então ele só aceita a própria máquina. Para abrir pelo celular dentro da sua tailnet:
+O painel não tem login, então por padrão só aceita a própria máquina. Para abrir pelo celular na sua tailnet,
+escute também no IP do Tailscale (`tailscale ip -4`) e libere o nome MagicDNS da máquina:
 
 ```powershell
-tailscale serve --bg 4710
-```
-```powershell
-painel servidor --permitir pc.tail1234.ts.net
+painel servidor --host 127.0.0.1,100.x.y.z --permitir pc,pc.tail1234.ts.net
 ```
 
-Troque `pc.tail1234.ts.net` pelo nome que o `tailscale serve` mostrar e abra `https://pc.tail1234.ts.net` no
-celular. O serviço continua escutando só em `127.0.0.1`; o Tailscale entrega o tráfego da tailnet com HTTPS.
-Também dá para usar `PAINEL_HOSTS_PERMITIDOS` (vários separados por vírgula; `*.dominio` libera subdomínios).
-Libere só endereços que apenas você alcança.
+No celular, abra `http://pc:4710` (ou `http://100.x.y.z:4710`). O tráfego vai cifrado pelo próprio Tailscale.
+Na primeira vez o Windows Firewall pode pedir para liberar o `node.exe`: libere em redes privadas.
+Mantenha o `127.0.0.1` na lista: é por ele que o navegador do PC, o MCP e o `painel init` falam com o serviço.
+
+Se a sua tailnet tiver certificados HTTPS ligados, também funciona `tailscale serve --bg 4710` com
+`painel servidor --permitir pc.tail1234.ts.net` (e o serviço continua só em `127.0.0.1`).
+
+`PAINEL_HOSTS_PERMITIDOS` faz o mesmo que `--permitir` (vários separados por vírgula; `*.dominio` libera
+subdomínios). Libere só endereços que apenas você alcança: nunca escute em `0.0.0.0` numa rede que não é sua.
 
 ## Usar em um projeto
 
