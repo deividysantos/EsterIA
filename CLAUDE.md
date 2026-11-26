@@ -17,6 +17,8 @@ Reescrita do painel de agentes. O plano e as fases estão em `docs/PLANO-V2.md`.
 - A API só responde a host local e recusa escrita de outra origem; mantenha isso em rotas novas (ficam sob
   `/api/*`).
 - Verificação no navegador: configuração `painel-v2-teste` (porta 4799, banco em `.teste-dados/`).
+- Comandos `instalar`, `init`, `doctor` e `mcp` em `src/cli/`. Testes deles nunca registram o MCP no Claude
+  Code real nem mexem no PATH: o executor de comandos é injetado (`rodar`). O stdout do `painel mcp` é só JSON-RPC.
 - Um adaptador por CLI em `src/server/adaptadores/` (monta o comando e normaliza o stream). Amostras reais de
   stream em `testes/amostras/` (sem caminhos pessoais); a do Codex é sintética até haver uma real. Testes do
   executor usam `testes/apoio/cli-falso.mjs`, nunca um CLI real.
