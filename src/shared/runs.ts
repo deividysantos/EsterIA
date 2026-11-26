@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { idProjetoSchema } from './projetos.js';
+import type { ResumoProblema } from './problemas.js';
 import type { IdProvedor } from './provedores.js';
 
 export const MODOS = ['leitura', 'escrita'] as const;
@@ -61,6 +62,8 @@ export interface Run {
   contagemMensagens: number;
   contagemFerramentas: number;
   arquivos: string[];
+  problema: string | null;
+  execucaoId: number | null;
 }
 
 export interface Evento {
@@ -139,4 +142,5 @@ export interface RelatorioUsage {
 /** Mensagens do canal ao vivo (`/api/ao-vivo`). */
 export type MensagemAoVivo =
   | { tipo: 'run'; run: Run }
-  | { tipo: 'evento'; evento: Evento };
+  | { tipo: 'evento'; evento: Evento }
+  | { tipo: 'problema'; problema: ResumoProblema };

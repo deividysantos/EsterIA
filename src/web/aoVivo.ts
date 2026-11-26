@@ -1,6 +1,7 @@
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
+import type { ResumoProblema } from '../shared/problemas';
 import type { DetalheRun, MensagemAoVivo, Run } from '../shared/runs';
 
 let fonte: EventSource | null = null;
@@ -26,6 +27,19 @@ function aplicar(qc: QueryClient, m: MensagemAoVivo) {
         qc.invalidateQueries({ queryKey: ['runs-filtro'] });
       }, 500);
     }
+  } else if (m.tipo === 'problema') {
+    const p = m.problema;
+    qc.setQueryData<ResumoProblema[]>(['problemas'], (lista) => {
+      if (!lista) return lista;
+      const i = lista.findIndex((x) => x.id === p.id);
+      if (i < 0) return [p, ...lista];
+      const nova = [...lista];
+      nova[i] = p;
+      return nova;
+    });
+    // O detalhe tem tarefas e execuções: recarrega (barato, é local).
+    qc.invalidateQueries({ queryKey: ['problema', p.id] });
+    qc.invalidateQueries({ queryKey: ['fila'] });
   } else {
     qc.setQueryData<DetalheRun>(['run', m.evento.runId], (d) => {
       if (!d || d.eventos.some((e) => e.seq === m.evento.seq)) return d;
@@ -50,6 +64,7 @@ export function useAoVivo() {
       };
       fonte.addEventListener('run', ouvir as EventListener);
       fonte.addEventListener('evento', ouvir as EventListener);
+      fonte.addEventListener('problema', ouvir as EventListener);
       // Ao reconectar, o que passou durante a queda é recarregado.
       fonte.addEventListener('pronto', () => {
         qc.invalidateQueries({ queryKey: ['run'] });

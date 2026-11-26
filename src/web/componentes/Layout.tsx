@@ -5,6 +5,8 @@ import { api } from '../api';
 
 const ITENS = [
   { para: '/', rotulo: 'Início', fim: true },
+  { para: '/problemas', rotulo: 'Problemas' },
+  { para: '/fila', rotulo: 'Fila' },
   { para: '/projetos', rotulo: 'Projetos' },
   { para: '/provedores', rotulo: 'Provedores' },
   { para: '/modelos', rotulo: 'Modelos' },

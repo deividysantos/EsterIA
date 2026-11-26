@@ -7,6 +7,9 @@ import { Layout } from './componentes/Layout';
 import './estilos.css';
 import { EmBreve } from './paginas/EmBreve';
 import { Esteiras } from './paginas/Esteiras';
+import { Fila } from './paginas/Fila';
+import { Problema } from './paginas/Problema';
+import { Problemas } from './paginas/Problemas';
 import { Inicio } from './paginas/Inicio';
 import { Modelos } from './paginas/Modelos';
 import { Provedores } from './paginas/Provedores';
@@ -25,6 +28,9 @@ const rotas = createBrowserRouter([
     element: <Layout />,
     children: [
       { index: true, element: <Inicio /> },
+      { path: 'problemas', element: <Problemas /> },
+      { path: 'problemas/:id', element: <Problema /> },
+      { path: 'fila', element: <Fila /> },
       { path: 'projetos', element: <Projetos /> },
       { path: 'provedores', element: <Provedores /> },
       { path: 'modelos', element: <Modelos /> },

@@ -213,6 +213,94 @@ export const MIGRACOES: readonly Migracao[] = [
       `);
     },
   },
+  {
+    versao: 5,
+    nome: 'problemas, tarefas, execuções e configurações',
+    aplicar(db) {
+      db.exec(`
+        CREATE TABLE problemas (
+          id TEXT PRIMARY KEY,
+          projeto TEXT NOT NULL REFERENCES projetos(id),
+          numero INTEGER NOT NULL,
+          titulo TEXT NOT NULL,
+          descricao TEXT NOT NULL,
+          estado TEXT NOT NULL CHECK (estado IN ('em_andamento', 'aguardando', 'bloqueado', 'pausado', 'concluido', 'cancelado')),
+          esteira_versao INTEGER NOT NULL,
+          fase TEXT NOT NULL DEFAULT 'antes' CHECK (fase IN ('antes', 'tarefas', 'depois', 'fim')),
+          indice INTEGER NOT NULL DEFAULT 0,
+          plano_json TEXT,
+          respostas_json TEXT NOT NULL DEFAULT '[]',
+          contadores_json TEXT NOT NULL DEFAULT '{}',
+          feedback TEXT,
+          motivo TEXT,
+          criado_em TEXT NOT NULL,
+          atualizado_em TEXT NOT NULL,
+          concluido_em TEXT,
+          UNIQUE (projeto, numero),
+          FOREIGN KEY (projeto, esteira_versao) REFERENCES esteira_versoes(projeto, n)
+        ) STRICT;
+
+        CREATE INDEX idx_problemas_estado ON problemas(estado);
+
+        CREATE TABLE tarefas (
+          id INTEGER PRIMARY KEY,
+          problema TEXT NOT NULL REFERENCES problemas(id) ON DELETE CASCADE,
+          codigo TEXT NOT NULL,
+          titulo TEXT NOT NULL,
+          descricao TEXT NOT NULL,
+          revisao_independente INTEGER NOT NULL DEFAULT 1,
+          depende_de_json TEXT NOT NULL DEFAULT '[]',
+          modelos_json TEXT NOT NULL DEFAULT '{}',
+          justificativa TEXT NOT NULL DEFAULT '',
+          ordem INTEGER NOT NULL,
+          estado TEXT NOT NULL CHECK (estado IN ('pendente', 'em_andamento', 'bloqueada', 'concluida', 'cancelada')),
+          indice_etapa INTEGER NOT NULL DEFAULT 0,
+          contadores_json TEXT NOT NULL DEFAULT '{}',
+          feedback TEXT,
+          base_git_json TEXT,
+          arquivos_json TEXT NOT NULL DEFAULT '[]',
+          commit_hash TEXT,
+          motivo TEXT,
+          criado_em TEXT NOT NULL,
+          atualizado_em TEXT NOT NULL,
+          UNIQUE (problema, codigo)
+        ) STRICT;
+
+        CREATE TABLE execucoes (
+          id INTEGER PRIMARY KEY,
+          problema TEXT NOT NULL REFERENCES problemas(id) ON DELETE CASCADE,
+          tarefa_id INTEGER REFERENCES tarefas(id) ON DELETE CASCADE,
+          etapa_id TEXT NOT NULL,
+          etapa_nome TEXT NOT NULL,
+          tipo TEXT NOT NULL,
+          tentativa INTEGER NOT NULL,
+          estado TEXT NOT NULL CHECK (estado IN ('rodando', 'aguardando', 'concluida', 'reprovada', 'falhou', 'pulada', 'cancelada', 'respondida')),
+          espera TEXT CHECK (espera IN ('aprovacao', 'perguntas')),
+          run_id TEXT REFERENCES runs(id) ON DELETE SET NULL,
+          modelo_id INTEGER REFERENCES modelos(id) ON DELETE SET NULL,
+          modelo_nome TEXT,
+          motivo_escolha TEXT,
+          feedback TEXT,
+          saida_texto TEXT,
+          saida_json TEXT,
+          erro TEXT,
+          inicio TEXT NOT NULL,
+          fim TEXT
+        ) STRICT;
+
+        CREATE INDEX idx_execucoes_problema ON execucoes(problema, id);
+        CREATE INDEX idx_execucoes_estado ON execucoes(estado);
+
+        ALTER TABLE runs ADD COLUMN problema TEXT REFERENCES problemas(id) ON DELETE SET NULL;
+        ALTER TABLE runs ADD COLUMN execucao_id INTEGER REFERENCES execucoes(id) ON DELETE SET NULL;
+
+        CREATE TABLE configuracoes (
+          chave TEXT PRIMARY KEY,
+          valor_json TEXT NOT NULL
+        ) STRICT;
+      `);
+    },
+  },
 ];
 
 export const VERSAO_ESQUEMA = MIGRACOES.at(-1)?.versao ?? 0;

@@ -2,6 +2,15 @@ import type { EdicaoProjeto, ErroApi, NovoProjeto, Projeto, Saude } from '../sha
 import type { EdicaoModelo, IdProvedor, Modelo, NovoModelo, Provedor } from '../shared/provedores';
 import type { DetalheRun, NovoRun, RelatorioUsage, Run } from '../shared/runs';
 import type { Definicao, EsteiraProjeto, SalvarEsteira } from '../shared/esteiras';
+import type {
+  AcaoProblema,
+  Decisao,
+  DetalheProblema,
+  EstadoFila,
+  LimitesFila,
+  NovoProblema,
+  ResumoProblema,
+} from '../shared/problemas';
 
 export class ErroRequisicao extends Error {
   constructor(
@@ -76,4 +85,18 @@ export const api = {
     }),
   versaoEsteira: (projeto: string, n: number) =>
     pedir<Definicao>(`/api/projetos/${encodeURIComponent(projeto)}/esteira/versoes/${n}`),
+
+  problemas: (filtro: { projeto?: string; estado?: string } = {}) => {
+    const q = new URLSearchParams(Object.entries(filtro).filter(([, v]) => v) as [string, string][]);
+    return pedir<ResumoProblema[]>(`/api/problemas${q.size ? `?${q}` : ''}`);
+  },
+  problema: (id: string) => pedir<DetalheProblema>(`/api/problemas/${encodeURIComponent(id)}`),
+  criarProblema: (dados: NovoProblema) =>
+    pedir<ResumoProblema>('/api/problemas', { method: 'POST', body: JSON.stringify(dados) }),
+  acaoProblema: (id: string, acao: AcaoProblema) =>
+    pedir<ResumoProblema>(`/api/problemas/${encodeURIComponent(id)}/acoes`, { method: 'POST', body: JSON.stringify({ acao }) }),
+  decidir: (execucaoId: number, d: Decisao) =>
+    pedir<ResumoProblema>(`/api/execucoes/${execucaoId}/decisao`, { method: 'POST', body: JSON.stringify(d) }),
+  fila: () => pedir<EstadoFila>('/api/fila'),
+  definirLimites: (l: LimitesFila) => pedir<LimitesFila>('/api/fila/limites', { method: 'PUT', body: JSON.stringify(l) }),
 };

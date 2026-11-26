@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { serveStatic } from '@hono/node-server/serve-static';
@@ -9,8 +10,10 @@ import type { ErroApi, Saude } from '../shared/projetos.js';
 import { rotasEsteiras } from './api/esteiras.js';
 import { rotasProjetos } from './api/projetos.js';
 import { rotasModelos, rotasProvedores } from './api/provedores.js';
+import { rotasExecucoes, rotasFila, rotasProblemas } from './api/problemas.js';
 import { rotaAoVivo, rotasRuns, rotasUsage } from './api/runs.js';
 import { AoVivo } from './aoVivo.js';
+import { Motor } from './motor/motor.js';
 import { Executor } from './runs/executor.js';
 import type { Env } from './provedores/executavel.js';
 import { versaoEsquema, type Banco } from './db/banco.js';
@@ -27,9 +30,11 @@ export interface OpcoesApp {
   env?: Env;
   aoVivo?: AoVivo;
   executor?: Executor;
+  /** Sem motor informado, cria um parado (sem laço da fila): serve para testes da API. */
+  motor?: Motor;
 }
 
-export type Variaveis = { Variables: { db: Banco; env: Env; aoVivo: AoVivo; executor: Executor } };
+export type Variaveis = { Variables: { db: Banco; env: Env; aoVivo: AoVivo; executor: Executor; motor: Motor } };
 
 const HOSTS_LOCAIS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
 
@@ -75,6 +80,7 @@ export function criarApp(opcoes: OpcoesApp): Hono<Variaveis> {
   const env = opcoes.env ?? process.env;
   const aoVivo = opcoes.aoVivo ?? new AoVivo();
   const executor = opcoes.executor ?? new Executor(db, aoVivo, env);
+  const motor = opcoes.motor ?? new Motor(db, executor, aoVivo, { env, dadosDir: path.join(os.tmpdir(), 'painel-agentes') });
   const app = new Hono<Variaveis>();
 
   app.onError((err, c) => responderErro(c, err));
@@ -92,6 +98,7 @@ export function criarApp(opcoes: OpcoesApp): Hono<Variaveis> {
     c.set('env', env);
     c.set('aoVivo', aoVivo);
     c.set('executor', executor);
+    c.set('motor', motor);
     await next();
   });
 
@@ -113,6 +120,9 @@ export function criarApp(opcoes: OpcoesApp): Hono<Variaveis> {
   app.route('/api/runs', rotasRuns());
   app.route('/api/usage', rotasUsage());
   app.route('/api/ao-vivo', rotaAoVivo());
+  app.route('/api/problemas', rotasProblemas());
+  app.route('/api/execucoes', rotasExecucoes());
+  app.route('/api/fila', rotasFila());
 
   app.all('/api/*', (c) =>
     c.json({ erro: 'Rota não encontrada.', codigo: 'NAO_ENCONTRADO' } satisfies ErroApi, 404)

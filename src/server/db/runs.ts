@@ -40,6 +40,8 @@ interface Linha {
   contagem_mensagens: number;
   contagem_ferramentas: number;
   arquivos_json: string;
+  problema: string | null;
+  execucao_id: number | null;
 }
 
 function paraRun(l: Linha): Run {
@@ -81,6 +83,8 @@ function paraRun(l: Linha): Run {
     contagemMensagens: l.contagem_mensagens,
     contagemFerramentas: l.contagem_ferramentas,
     arquivos: JSON.parse(l.arquivos_json) as string[],
+    problema: l.problema,
+    execucaoId: l.execucao_id,
   };
 }
 
@@ -99,14 +103,16 @@ export interface NovoRegistroRun {
   comando: string[];
   sessaoRetomada: string | null;
   inicio: Date;
+  problema?: string | null;
+  execucaoId?: number | null;
 }
 
 export function inserirRun(db: Banco, r: NovoRegistroRun): Run {
   const ts = r.inicio.toISOString();
   db.prepare(
     `INSERT INTO runs (id, projeto, provedor, modelo_id, modelo_codigo, modelo_nome, familia, papel, modo, cwd, prompt,
-       comando_json, sessao_retomada, estado, inicio, criado_em, atualizado_em)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'rodando', ?, ?, ?)`
+       comando_json, sessao_retomada, estado, inicio, criado_em, atualizado_em, problema, execucao_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'rodando', ?, ?, ?, ?, ?)`
   ).run(
     r.id,
     r.projeto,
@@ -123,7 +129,9 @@ export function inserirRun(db: Banco, r: NovoRegistroRun): Run {
     r.sessaoRetomada,
     ts,
     ts,
-    ts
+    ts,
+    r.problema ?? null,
+    r.execucaoId ?? null
   );
   return obterRun(db, r.id);
 }

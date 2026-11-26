@@ -30,6 +30,8 @@ const LIMITE_STDERR = 256 * 1024;
 export interface OpcoesInicio extends NovoRunValidado {
   papel?: string;
   jsonSchemaArquivo?: string | null;
+  problema?: string | null;
+  execucaoId?: number | null;
 }
 
 interface Ativo {
@@ -123,6 +125,8 @@ export class Executor {
       comando: comandoGravado,
       sessaoRetomada: o.sessao,
       inicio,
+      problema: o.problema ?? null,
+      execucaoId: o.execucaoId ?? null,
     });
 
     let proc: ChildProcess;

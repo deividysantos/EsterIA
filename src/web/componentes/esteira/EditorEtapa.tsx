@@ -312,7 +312,7 @@ export function EditorEtapa({ etapa: e, definicao, modelos, provedores, problema
                 }
               >
                 <option value="voltar">Voltar para uma etapa</option>
-                <option value="bloquear">Parar e chamar você</option>
+                <option value="bloquear">Repetir esta etapa</option>
                 <option value="continuar">Registrar e seguir</option>
               </select>
             </label>
