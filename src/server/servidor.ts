@@ -6,6 +6,9 @@ import { criarApp } from './app.js';
 import { abrirBanco, type Banco } from './db/banco.js';
 import { HOST_PADRAO } from './config.js';
 import { verificarTodos } from './provedores/servico.js';
+import { AoVivo } from './aoVivo.js';
+import { marcarInterrompidos } from './db/runs.js';
+import { Executor } from './runs/executor.js';
 
 export interface OpcoesServidor {
   caminhoBanco: string;
@@ -20,6 +23,7 @@ export interface ServidorAtivo {
   url: string;
   porta: number;
   db: Banco;
+  executor: Executor;
   fechar(): Promise<void>;
 }
 
@@ -27,7 +31,11 @@ export interface ServidorAtivo {
 export async function iniciarServidor(opcoes: OpcoesServidor): Promise<ServidorAtivo> {
   const host = opcoes.host ?? HOST_PADRAO;
   const db = abrirBanco(opcoes.caminhoBanco);
-  const app = criarApp({ db, caminhoBanco: opcoes.caminhoBanco, webDir: opcoes.webDir ?? null });
+  const interrompidos = marcarInterrompidos(db);
+  if (interrompidos) console.warn(`[painel] ${interrompidos} run(s) marcados como interrompidos (o serviço caiu durante a execução).`);
+  const aoVivo = new AoVivo();
+  const executor = new Executor(db, aoVivo);
+  const app = criarApp({ db, caminhoBanco: opcoes.caminhoBanco, webDir: opcoes.webDir ?? null, aoVivo, executor });
 
   let server: ServerType;
   try {
@@ -57,9 +65,11 @@ export async function iniciarServidor(opcoes: OpcoesServidor): Promise<ServidorA
     url: `http://${hostUrl}:${porta}`,
     porta,
     db,
+    executor,
     async fechar() {
       if (fechado) return;
       fechado = true;
+      await executor.encerrar();
       await new Promise<void>((resolve) => {
         if ('closeAllConnections' in server) server.closeAllConnections();
         server.close(() => resolve());

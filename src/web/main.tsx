@@ -9,6 +9,9 @@ import { EmBreve } from './paginas/EmBreve';
 import { Inicio } from './paginas/Inicio';
 import { Modelos } from './paginas/Modelos';
 import { Provedores } from './paginas/Provedores';
+import { Run } from './paginas/Run';
+import { Runs } from './paginas/Runs';
+import { Usage } from './paginas/Usage';
 import { Projetos } from './paginas/Projetos';
 
 const consultas = new QueryClient({
@@ -24,6 +27,9 @@ const rotas = createBrowserRouter([
       { path: 'projetos', element: <Projetos /> },
       { path: 'provedores', element: <Provedores /> },
       { path: 'modelos', element: <Modelos /> },
+      { path: 'runs', element: <Runs /> },
+      { path: 'runs/:id', element: <Run /> },
+      { path: 'usage', element: <Usage /> },
       {
         path: 'esteiras',
         element: (
@@ -31,16 +37,6 @@ const rotas = createBrowserRouter([
             titulo="Esteiras"
             fase="F3"
             texto="Etapas por projeto (planejar, executar, revisar, testes, aprovação humana, etapas livres), com versões e regras de retentativa."
-          />
-        ),
-      },
-      {
-        path: 'usage',
-        element: (
-          <EmBreve
-            titulo="Usage"
-            fase="F2 e F6"
-            texto="Tokens e custo por run e por modelo, métricas de qualidade (aprovação na 1ª tentativa, precisão do revisor) e limites de assinatura."
           />
         ),
       },

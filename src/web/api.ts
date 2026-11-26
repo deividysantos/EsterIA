@@ -1,5 +1,6 @@
 import type { EdicaoProjeto, ErroApi, NovoProjeto, Projeto, Saude } from '../shared/projetos';
 import type { EdicaoModelo, IdProvedor, Modelo, NovoModelo, Provedor } from '../shared/provedores';
+import type { DetalheRun, NovoRun, RelatorioUsage, Run } from '../shared/runs';
 
 export class ErroRequisicao extends Error {
   constructor(
@@ -49,4 +50,15 @@ export const api = {
   editarModelo: (id: number, dados: EdicaoModelo) =>
     pedir<Modelo>(`/api/modelos/${id}`, { method: 'PATCH', body: JSON.stringify(dados) }),
   excluirModelo: (id: number) => pedir<null>(`/api/modelos/${id}`, { method: 'DELETE' }),
+
+  runs: (filtro: { projeto?: string; estado?: string } = {}) => {
+    const q = new URLSearchParams(Object.entries(filtro).filter(([, v]) => v) as [string, string][]);
+    return pedir<Run[]>(`/api/runs${q.size ? `?${q}` : ''}`);
+  },
+  run: (id: string) => pedir<DetalheRun>(`/api/runs/${encodeURIComponent(id)}`),
+  criarRun: (dados: NovoRun) => pedir<Run>('/api/runs', { method: 'POST', body: JSON.stringify(dados) }),
+  cancelarRun: (id: string) => pedir<Run>(`/api/runs/${encodeURIComponent(id)}/cancelar`, { method: 'POST' }),
+  brutoEvento: (id: string, seq: number) => pedir<unknown>(`/api/runs/${encodeURIComponent(id)}/eventos/${seq}/bruto`),
+  usage: (dias: number, projeto?: string) =>
+    pedir<RelatorioUsage>(`/api/usage?dias=${dias}${projeto ? `&projeto=${encodeURIComponent(projeto)}` : ''}`),
 };

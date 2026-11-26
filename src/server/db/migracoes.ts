@@ -106,6 +106,88 @@ export const MIGRACOES: readonly Migracao[] = [
       }
     },
   },
+  {
+    versao: 3,
+    nome: 'runs, eventos e limites',
+    aplicar(db) {
+      db.exec(`
+        CREATE TABLE runs (
+          id TEXT PRIMARY KEY,
+          projeto TEXT REFERENCES projetos(id) ON DELETE SET NULL,
+          provedor TEXT NOT NULL REFERENCES provedores(id),
+          modelo_id INTEGER REFERENCES modelos(id) ON DELETE SET NULL,
+          modelo_codigo TEXT NOT NULL,
+          modelo_nome TEXT NOT NULL,
+          familia TEXT NOT NULL,
+          papel TEXT NOT NULL DEFAULT 'avulso',
+          modo TEXT NOT NULL CHECK (modo IN ('leitura', 'escrita')),
+          cwd TEXT NOT NULL,
+          prompt TEXT NOT NULL,
+          comando_json TEXT NOT NULL DEFAULT '[]',
+          sessao_retomada TEXT,
+          sessao TEXT,
+          modelo_reportado TEXT,
+          pid INTEGER,
+          estado TEXT NOT NULL CHECK (estado IN ('rodando', 'concluido', 'falhou', 'cancelado', 'interrompido')),
+          codigo_saida INTEGER,
+          erro TEXT,
+          inicio TEXT NOT NULL,
+          fim TEXT,
+          duracao_ms INTEGER,
+          tokens_entrada INTEGER,
+          tokens_saida INTEGER,
+          tokens_cache_leitura INTEGER,
+          tokens_cache_escrita INTEGER,
+          tokens_raciocinio INTEGER,
+          num_turnos INTEGER,
+          custo_usd REAL,
+          custo_origem TEXT CHECK (custo_origem IN ('cli', 'estimado')),
+          resultado_texto TEXT,
+          saida_estruturada_json TEXT,
+          contagem_mensagens INTEGER NOT NULL DEFAULT 0,
+          contagem_ferramentas INTEGER NOT NULL DEFAULT 0,
+          arquivos_json TEXT NOT NULL DEFAULT '[]',
+          criado_em TEXT NOT NULL,
+          atualizado_em TEXT NOT NULL
+        ) STRICT;
+
+        CREATE INDEX idx_runs_inicio ON runs(inicio DESC);
+        CREATE INDEX idx_runs_projeto ON runs(projeto, inicio DESC);
+        CREATE INDEX idx_runs_modelo ON runs(provedor, modelo_codigo, inicio);
+        CREATE INDEX idx_runs_estado ON runs(estado);
+
+        CREATE TABLE eventos (
+          run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+          seq INTEGER NOT NULL,
+          ts TEXT NOT NULL,
+          tipo TEXT NOT NULL,
+          resumo TEXT NOT NULL,
+          texto TEXT,
+          bruto_json TEXT,
+          PRIMARY KEY (run_id, seq)
+        ) STRICT;
+
+        CREATE TABLE run_stderr (
+          run_id TEXT PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE,
+          texto TEXT NOT NULL,
+          truncado INTEGER NOT NULL DEFAULT 0
+        ) STRICT;
+
+        CREATE TABLE limites_snapshots (
+          id INTEGER PRIMARY KEY,
+          provedor TEXT NOT NULL REFERENCES provedores(id),
+          run_id TEXT REFERENCES runs(id) ON DELETE SET NULL,
+          janela TEXT NOT NULL,
+          utilizacao REAL,
+          status TEXT,
+          reinicia_em TEXT,
+          capturado_em TEXT NOT NULL
+        ) STRICT;
+
+        CREATE INDEX idx_limites ON limites_snapshots(provedor, janela, capturado_em DESC);
+      `);
+    },
+  },
 ];
 
 export const VERSAO_ESQUEMA = MIGRACOES.at(-1)?.versao ?? 0;

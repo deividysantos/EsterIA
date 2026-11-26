@@ -8,6 +8,7 @@ const ITENS = [
   { para: '/projetos', rotulo: 'Projetos' },
   { para: '/provedores', rotulo: 'Provedores' },
   { para: '/modelos', rotulo: 'Modelos' },
+  { para: '/runs', rotulo: 'Runs' },
   { para: '/esteiras', rotulo: 'Esteiras' },
   { para: '/usage', rotulo: 'Usage' },
 ];
