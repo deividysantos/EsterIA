@@ -56,7 +56,20 @@ import type { Executor } from '../runs/executor.js';
 import { rodarComando } from './comando.js';
 import { arquivosDaTarefa, arquivosAlterados, commitar, diffDosArquivos, raizGit, relativosARaiz } from './git.js';
 import { catalogoModelos, promptCompleto, promptRetomada, respostasMarkdown, SCHEMAS_JSON, valoresVariaveis } from './prompts.js';
+import { descreverCriterios, pontuar } from './pontuacao.js';
 import { aposFalha, blocoTarefas, decidir, type Resultado } from './proximo.js';
+import type { CandidatoPontuado, Criterios, OrigemDecisao, PreviaPapel } from '../../shared/criterios.js';
+import { metricasMedidas, obterCriterios, registrarDecisao } from '../db/criterios.js';
+
+interface Escolha {
+  modelo: Modelo;
+  motivo: string;
+  origem: OrigemDecisao;
+  papel: string | null;
+  pedido: string | null;
+  candidatos: CandidatoPontuado[];
+  criterios: Criterios;
+}
 
 export interface OpcoesMotor {
   env?: Env;
@@ -271,28 +284,61 @@ export class Motor {
     return listarModelos(this.db).filter((m) => m.ativo && hab.has(m.provedor));
   }
 
-  /** Candidatos declarados na etapa, só os disponíveis agora (sem aplicar a revisão cruzada). */
-  private candidatosBase(etapa: Etapa): Modelo[] {
-    const disp = this.disponiveis();
-    if (etapa.agente?.modo !== 'orquestrador' || !etapa.agente.candidatos.length) return disp;
-    return etapa.agente.candidatos.map((i) => disp.find((m) => m.id === i)).filter((m): m is Modelo => !!m);
-  }
-
   private regraDe(etapa: Etapa): string | null {
     const ref = etapa.agente?.modo === 'orquestrador' ? etapa.agente.familiaDiferenteDe : null;
     return ref ? `família diferente de quem rodou "${ref}"` : null;
   }
 
-  /** Candidatos já filtrados pela revisão cruzada (família do modelo que rodou a etapa de referência). */
-  private candidatosDe(etapa: Etapa, p: ProblemaInterno, tarefa: TarefaInterna | null): { lista: Modelo[]; regra: string | null } {
-    let lista = this.candidatosBase(etapa);
-    const ref = etapa.agente?.modo === 'orquestrador' ? etapa.agente.familiaDiferenteDe : null;
-    if (ref) {
-      const anterior = ultimaExecucao(this.db, p.id, tarefa?.id ?? null, ref);
-      const fam = anterior?.modeloId ? listarModelos(this.db).find((m) => m.id === anterior.modeloId)?.familia : null;
-      if (fam) lista = lista.filter((m) => m.familia !== fam);
+  /**
+   * Todos os candidatos da etapa, pontuados com os critérios do projeto. Os que não podem ser usados
+   * (inativos, provedor fora, regra rígida, revisão cruzada) ficam na lista com o motivo, para o registro.
+   * Sem `p`, é a prévia: não aplica a revisão cruzada (ainda não há quem executou).
+   */
+  pontuarCandidatos(
+    projeto: string,
+    etapa: Etapa,
+    p: ProblemaInterno | null,
+    tarefa: TarefaInterna | null,
+    criteriosOverride?: Criterios
+  ): CandidatoPontuado[] {
+    const todos = listarModelos(this.db);
+    const hab = new Set(listarProvedores(this.db).filter((x) => x.habilitado).map((x) => x.id));
+    const ids = etapa.agente?.modo === 'orquestrador' && etapa.agente.candidatos.length ? etapa.agente.candidatos : null;
+    const base = ids ? ids.map((i) => todos.find((m) => m.id === i)).filter((m): m is Modelo => !!m) : todos.filter((m) => m.ativo);
+
+    const exclusoes = new Map<number, string>();
+    for (const m of base) {
+      if (!m.ativo) exclusoes.set(m.id, 'modelo desativado');
+      else if (!hab.has(m.provedor)) exclusoes.set(m.id, 'provedor não habilitado nesta máquina');
     }
-    return { lista, regra: this.regraDe(etapa) };
+    const ref = etapa.agente?.modo === 'orquestrador' ? etapa.agente.familiaDiferenteDe : null;
+    if (ref && p) {
+      const anterior = ultimaExecucao(this.db, p.id, tarefa?.id ?? null, ref);
+      const fam = anterior?.modeloId ? todos.find((m) => m.id === anterior.modeloId)?.familia : null;
+      if (fam) for (const m of base) if (m.familia === fam && !exclusoes.has(m.id)) exclusoes.set(m.id, `mesma família (${fam}) de quem rodou "${ref}"`);
+    }
+    const criterios = criteriosOverride ?? obterCriterios(this.db, projeto).criterios;
+    const medidas = metricasMedidas(this.db, base.map((m) => m.id), criterios.historico === 'projeto' ? projeto : null);
+    return pontuar(base, criterios, medidas, exclusoes);
+  }
+
+  /** Prévia da pontuação para cada etapa em que o orquestrador escolhe, na esteira atual do projeto. */
+  previa(projeto: string, criterios?: Criterios): PreviaPapel[] {
+    const esteira = obterEsteira(this.db, projeto);
+    if (!esteira) return [];
+    return esteira.definicao.etapas.flatMap((e) =>
+      e.agente?.modo === 'orquestrador'
+        ? [
+            {
+              etapaId: e.id,
+              etapaNome: e.nome,
+              papel: e.agente.papel,
+              regraCruzada: this.regraDe(e),
+              candidatos: this.pontuarCandidatos(projeto, e, null, null, criterios),
+            },
+          ]
+        : []
+    );
   }
 
   private escolherModelo(
@@ -300,34 +346,48 @@ export class Motor {
     p: ProblemaInterno,
     tarefa: TarefaInterna | null,
     tentativa: number
-  ): { modelo: Modelo; motivo: string } | { erro: string } {
-    const disp = this.disponiveis();
+  ): Escolha | { erro: string } {
+    const todos = listarModelos(this.db);
+    const hab = new Set(listarProvedores(this.db).filter((x) => x.habilitado).map((x) => x.id));
+    const disponivel = (m: Modelo | undefined): m is Modelo => !!m && m.ativo && hab.has(m.provedor);
+    const { criterios } = obterCriterios(this.db, p.projeto);
+    const papel = etapa.agente?.modo === 'orquestrador' ? etapa.agente.papel : null;
+
     if (etapa.escalar && tentativa >= etapa.escalar.aPartirDaTentativa) {
-      const m = disp.find((x) => x.id === etapa.escalar!.modeloId);
-      if (m) return { modelo: m, motivo: `troca de modelo a partir da tentativa ${etapa.escalar.aPartirDaTentativa}` };
+      const m = todos.find((x) => x.id === etapa.escalar!.modeloId);
+      if (disponivel(m)) {
+        return { modelo: m, motivo: `troca de modelo a partir da tentativa ${etapa.escalar.aPartirDaTentativa}`, origem: 'escalada', papel, pedido: null, candidatos: [], criterios };
+      }
     }
     if (etapa.agente?.modo === 'fixo') {
       const id = etapa.agente.modeloId;
-      const m = disp.find((x) => x.id === id);
-      if (m) return { modelo: m, motivo: 'modelo fixo da etapa' };
-      let nome = `modelo ${id}`;
-      try {
-        nome = obterModelo(this.db, id).nome;
-      } catch {
-        /* removido */
-      }
+      const m = todos.find((x) => x.id === id);
+      if (disponivel(m)) return { modelo: m, motivo: 'modelo fixo da etapa', origem: 'fixo', papel, pedido: null, candidatos: [], criterios };
+      const nome = todos.find((x) => x.id === id)?.nome ?? `modelo ${id}`;
       return { erro: `${etapa.nome}: ${nome} não está disponível (inativo ou provedor não habilitado).` };
     }
     if (etapa.agente?.modo === 'orquestrador') {
-      const { lista, regra } = this.candidatosDe(etapa, p, tarefa);
-      if (!lista.length) return { erro: `${etapa.nome}: nenhum candidato disponível${regra ? ` (${regra})` : ''}.` };
-      const pedido = tarefa?.modelos[etapa.agente.papel];
-      const escolhido = pedido ? lista.find((m) => m.codigo === pedido) : undefined;
-      if (escolhido) return { modelo: escolhido, motivo: `escolhido no plano${tarefa?.justificativa ? `: ${tarefa.justificativa}` : ''}` };
-      const motivo = pedido
-        ? `o plano pediu ${pedido}, que não está entre os candidatos disponíveis${regra ? ` (${regra})` : ''}; usado o primeiro candidato`
-        : 'o plano não indicou modelo para este papel; usado o primeiro candidato';
-      return { modelo: lista[0]!, motivo };
+      const candidatos = this.pontuarCandidatos(p.projeto, etapa, p, tarefa);
+      const elegiveis = candidatos.filter((c) => c.elegivel);
+      if (!elegiveis.length) {
+        const motivos = candidatos.map((c) => `${c.nome}: ${c.excluidoPor}`).join('; ');
+        return { erro: `${etapa.nome}: nenhum candidato pode ser usado${motivos ? ` (${motivos})` : ''}.` };
+      }
+      const pedido = tarefa?.modelos[etapa.agente.papel] ?? null;
+      const doPlano = pedido ? candidatos.find((c) => c.codigo === pedido) : undefined;
+      const melhor = elegiveis[0]!;
+      const pegar = (c: CandidatoPontuado) => todos.find((m) => m.id === c.modeloId)!;
+      const comum = { papel, pedido, candidatos, criterios };
+
+      if (criterios.modo === 'orquestrador' && doPlano?.elegivel) {
+        return { ...comum, modelo: pegar(doPlano), origem: 'plano', motivo: `escolhido no plano${tarefa?.justificativa ? `: ${tarefa.justificativa}` : ''}` };
+      }
+      let motivo: string;
+      if (criterios.modo === 'pontuacao') motivo = `maior pontuação (${melhor.pontuacao.toFixed(2)}); o projeto escolhe por pontuação`;
+      else if (!pedido) motivo = `o plano não indicou modelo para "${etapa.agente.papel}"; usado o de maior pontuação (${melhor.pontuacao.toFixed(2)})`;
+      else if (!doPlano) motivo = `o plano pediu ${pedido}, que não é candidato desta etapa; usado o de maior pontuação`;
+      else motivo = `o plano pediu ${pedido}, que não pode ser usado (${doPlano.excluidoPor}); usado o de maior pontuação`;
+      return { ...comum, modelo: pegar(melhor), origem: 'pontuacao', motivo };
     }
     return { erro: `${etapa.nome}: etapa sem agente configurado.` };
   }
@@ -360,7 +420,7 @@ export class Motor {
     }
 
     const usaAgente = etapa.agente !== null;
-    let escolha: { modelo: Modelo; motivo: string } | null = null;
+    let escolha: Escolha | null = null;
     if (usaAgente) {
       const r = this.escolherModelo(etapa, p, tarefa, tentativa);
       if ('erro' in r) {
@@ -389,6 +449,19 @@ export class Motor {
       motivoEscolha: escolha?.motivo ?? null,
       feedback,
     });
+    if (escolha) {
+      registrarDecisao(this.db, {
+        execucaoId: exec.id,
+        etapaId: etapa.id,
+        papel: escolha.papel,
+        origem: escolha.origem,
+        pedidoPeloPlano: escolha.pedido,
+        escolhidoId: escolha.modelo.id,
+        motivo: escolha.motivo,
+        candidatos: escolha.candidatos,
+        criterios: escolha.criterios,
+      });
+    }
     this.publicar(p.id);
 
     if (etapa.tipo === 'comando') {
@@ -425,11 +498,16 @@ export class Motor {
     // Etapas com agente.
     const modelo = escolha!.modelo;
     const tarefas = listarTarefas(this.db, p.id);
-    const papeis = def.etapas.flatMap((e) =>
-      e.ativa && e.agente?.modo === 'orquestrador'
-        ? [{ papel: e.agente.papel, etapa: e.nome, candidatos: this.candidatosBase(e), regra: this.regraDe(e) }]
-        : []
-    );
+    // Catálogo para o planejador: candidatos elegíveis de cada papel, já pontuados, e os critérios do projeto.
+    const papeis =
+      etapa.saida === 'plano' || /\{\{\s*modelos\s*\}\}/.test(etapa.prompt)
+        ? def.etapas.flatMap((e) =>
+            e.ativa && e.agente?.modo === 'orquestrador'
+              ? [{ papel: e.agente.papel, etapa: e.nome, candidatos: this.pontuarCandidatos(p.projeto, e, null, null), regra: this.regraDe(e) }]
+              : []
+          )
+        : [];
+    const criteriosTexto = descreverCriterios(obterCriterios(this.db, p.projeto).criterios);
     let diff = '';
     if (tarefa && /\{\{\s*diff\s*\}\}/.test(etapa.prompt)) {
       if (raiz) {
@@ -447,7 +525,7 @@ export class Motor {
       feedback,
       diff,
       saidaAnterior: ultimaGeral?.saidaTexto ?? '',
-      modelos: catalogoModelos(papeis),
+      modelos: catalogoModelos(papeis, criteriosTexto, listarModelos(this.db)),
     });
 
     // Mesmo agente e mesmo modelo de novo: retoma a sessão e manda só o retorno.

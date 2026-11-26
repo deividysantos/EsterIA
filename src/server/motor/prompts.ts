@@ -1,4 +1,6 @@
+import type { CandidatoPontuado } from '../../shared/criterios.js';
 import type { Etapa, Saida } from '../../shared/esteiras.js';
+import { descreverCandidato } from './pontuacao.js';
 import type { Plano, Resposta } from '../../shared/problemas.js';
 import type { Modelo } from '../../shared/provedores.js';
 import type { Projeto } from '../../shared/projetos.js';
@@ -59,23 +61,29 @@ export const SCHEMAS_JSON: Partial<Record<Saida, object>> = {
   },
 };
 
-function notas(m: Modelo): string {
-  const n = (rot: string, v: number | null) => (v === null ? null : `${rot} ${v}/5`);
-  return [n('custo', m.notaCusto), n('velocidade', m.notaVelocidade), n('qualidade', m.notaQualidade)].filter(Boolean).join(', ');
-}
-
-/** Catálogo que o planejador recebe em {{modelos}}: por papel, os candidatos e seus atributos. */
-export function catalogoModelos(papeis: { papel: string; etapa: string; candidatos: Modelo[]; regra: string | null }[]): string {
+/**
+ * Catálogo que o planejador recebe em {{modelos}}: os critérios do projeto e, por papel, os candidatos
+ * que podem ser usados, do mais bem pontuado para o menos, com atributos e observações.
+ */
+export function catalogoModelos(
+  papeis: { papel: string; etapa: string; candidatos: CandidatoPontuado[]; regra: string | null }[],
+  criterios: string,
+  modelos: readonly Modelo[] = []
+): string {
   if (!papeis.length) return '(nenhuma etapa da esteira pede escolha de modelo)';
-  return papeis
-    .map((p) => {
-      const linhas = p.candidatos.map((m) => {
-        const extra = [notas(m), m.tags.length ? `tags: ${m.tags.join(', ')}` : '', m.observacao].filter(Boolean).join(' · ');
-        return `- \`${m.codigo}\` — ${m.nome} (família ${m.familia})${extra ? ` · ${extra}` : ''}`;
-      });
-      return [`### Papel "${p.papel}" (etapa ${p.etapa})${p.regra ? ` — ${p.regra}` : ''}`, ...linhas].join('\n');
-    })
-    .join('\n\n');
+  const porId = new Map(modelos.map((m) => [m.id, m]));
+  const blocos = papeis.map((p) => {
+    const elegiveis = p.candidatos.filter((c) => c.elegivel);
+    const linhas = elegiveis.length
+      ? elegiveis.map((c) => {
+          const m = porId.get(c.modeloId);
+          const extra = [m?.tags.length ? `tags: ${m.tags.join(', ')}` : '', m?.observacao ?? ''].filter(Boolean).join(' · ');
+          return `- \`${c.codigo}\` — ${c.nome} (família ${c.familia}) · ${descreverCandidato(c)}${extra ? ` · ${extra}` : ''}`;
+        })
+      : ['- (nenhum candidato disponível agora)'];
+    return [`### Papel "${p.papel}" (etapa ${p.etapa})${p.regra ? ` — ${p.regra}` : ''}`, ...linhas].join('\n');
+  });
+  return [criterios, ...blocos].join('\n\n');
 }
 
 export function planoMarkdown(plano: Plano | null): string {

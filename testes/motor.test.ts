@@ -11,7 +11,9 @@ import { novoModeloSchema } from '../src/shared/provedores.ts';
 import { AoVivo } from '../src/server/aoVivo.ts';
 import { abrirBanco, type Banco } from '../src/server/db/banco.ts';
 import { criarEsteira } from '../src/server/db/esteiras.ts';
-import { criarModelo, listarModelos } from '../src/server/db/modelos.ts';
+import { CRITERIOS_PADRAO } from '../src/shared/criterios.ts';
+import { decisoesDoProblema, metricasMedidas, salvarCriterios } from '../src/server/db/criterios.ts';
+import { criarModelo, editarModelo, listarModelos } from '../src/server/db/modelos.ts';
 import {
   atualizarExecucao,
   inserirExecucao,
@@ -442,6 +444,69 @@ describe('motor: controle', () => {
     await montar();
     criarProjeto(amb.db, { id: 'sem', nome: 'Sem', raiz: path.join(amb.tmp, 'outra') });
     assert.throws(() => amb.motor.criarProblema({ projeto: 'sem', titulo: 't', descricao: 'd' }), /Configure a esteira/);
+  });
+});
+
+describe('motor: critérios de escolha', () => {
+  it('modo pontuação ignora a escolha do plano, registra a decisão e o catálogo leva os pesos', async () => {
+    await montar((def) => {
+      def.etapas.find((e) => e.id === 'aprovar-plano')!.ativa = false;
+      def.etapas.find((e) => e.id === 'revisar')!.ativa = false;
+    });
+    editarModelo(amb.db, amb.ids.opus, { notaQualidade: 5 });
+    editarModelo(amb.db, amb.ids.sonnet, { notaQualidade: 3 });
+    salvarCriterios(amb.db, 'proj', {
+      ...CRITERIOS_PADRAO,
+      modo: 'pontuacao',
+      pesos: { ...CRITERIOS_PADRAO.pesos, qualidade: 10, custo: 0, velocidade: 0 },
+      instrucoes: 'Use sempre o melhor modelo.',
+    });
+    roteiro([
+      { se: SE_PLANO, resposta: PLANO([DUAS_TAREFAS[0]!]) },
+      { se: SE_EXEC, resposta: RESUMO(['a.txt']), escrever: { 'a.txt': 'a\n' } },
+    ]);
+    criar();
+    await rodar();
+    assert.equal(obterProblema(amb.db, problemaId).estado, 'concluido');
+
+    const pPlano = chamadas()[0]!.prompt;
+    assert.match(pPlano, /Pesos da pontuação: qualidade 10/);
+    assert.match(pPlano, /Use sempre o melhor modelo/);
+    assert.match(pPlano, /`claude-opus-5-5` — Claude Opus 5\.5 \(família claude\) · pontuação 1\.00/);
+
+    const exec = listarExecucoes(amb.db, problemaId).find((e) => e.etapaId === 'executar')!;
+    assert.equal(exec.modeloNome, 'Claude Opus 5.5', 'o plano pediu Sonnet, mas o projeto escolhe por pontuação');
+    const [dec] = decisoesDoProblema(amb.db, problemaId).filter((d) => d.etapaId === 'executar');
+    assert.equal(dec!.origem, 'pontuacao');
+    assert.equal(dec!.pedidoPeloPlano, 'claude-sonnet-5-5');
+    assert.equal(dec!.escolhidoId, amb.ids.opus);
+    assert.deepEqual(dec!.candidatos.map((c) => [c.codigo, c.pontuacao]), [['claude-opus-5-5', 1], ['claude-sonnet-5-5', 0.5]]);
+    const planejar = decisoesDoProblema(amb.db, problemaId).find((d) => d.etapaId === 'planejar')!;
+    assert.equal(planejar.origem, 'fixo');
+  });
+
+  it('regra rígida barra o modelo pedido pelo plano; métricas medidas saem do histórico', async () => {
+    await montar((def) => {
+      def.etapas.find((e) => e.id === 'aprovar-plano')!.ativa = false;
+    });
+    salvarCriterios(amb.db, 'proj', { ...CRITERIOS_PADRAO, excluidos: [amb.ids.sonnet] });
+    roteiro([
+      { se: SE_PLANO, resposta: PLANO([DUAS_TAREFAS[0]!]) },
+      { se: SE_PARECER, resposta: PARECER(true) },
+      { se: SE_EXEC, resposta: RESUMO(['a.txt']), escrever: { 'a.txt': 'a\n' } },
+    ]);
+    criar();
+    await rodar();
+    const exec = listarExecucoes(amb.db, problemaId).find((e) => e.etapaId === 'executar')!;
+    assert.equal(exec.modeloNome, 'Claude Opus 5.5');
+    assert.match(exec.motivoEscolha!, /não pode ser usado \(excluído nos critérios do projeto\)/);
+
+    const med = metricasMedidas(amb.db, [amb.ids.opus], null).get(amb.ids.opus)!;
+    assert.deepEqual(med.aprovacao_primeira, { valor: 1, amostras: 1 });
+    assert.equal(med.conclusao!.amostras, 2, 'o Opus planejou e executou');
+    assert.equal(med.custo_medido!.valor, 0.001);
+    const porProjeto = metricasMedidas(amb.db, [amb.ids.opus], 'outro');
+    assert.equal(porProjeto.size, 0);
   });
 });
 

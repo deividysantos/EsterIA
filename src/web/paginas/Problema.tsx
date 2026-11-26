@@ -3,8 +3,10 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import type { AcaoProblema, DetalheProblema, EstadoExecucao, EstadoTarefa, Execucao, Plano } from '../../shared/problemas';
+import type { DecisaoModelo } from '../../shared/criterios';
 import { api } from '../api';
 import { useAoVivo } from '../aoVivo';
+import { TabelaCandidatos } from '../componentes/TabelaCandidatos';
 import { dataHora, dolar, duracao } from '../formatar';
 import { EtiquetaProblema, Progresso } from './Problemas';
 
@@ -125,7 +127,14 @@ function PainelBloqueio({ d }: { d: DetalheProblema }) {
   );
 }
 
-function LinhaExecucao({ e }: { e: Execucao }) {
+const ROTULO_ORIGEM: Record<DecisaoModelo['origem'], string> = {
+  plano: 'escolha do plano',
+  pontuacao: 'maior pontuação',
+  fixo: 'modelo fixo da etapa',
+  escalada: 'troca de modelo por tentativa',
+};
+
+function LinhaExecucao({ e, decisao }: { e: Execucao; decisao: DecisaoModelo | undefined }) {
   const [aberta, setAberta] = useState(false);
   const fim = e.fim ? new Date(e.fim).getTime() : Date.now();
   return (
@@ -157,8 +166,15 @@ function LinhaExecucao({ e }: { e: Execucao }) {
           <td colSpan={8}>
             {e.motivoEscolha && (
               <p className="pequeno">
-                <span className="forte">Escolha do modelo:</span> {e.motivoEscolha}
+                <span className="forte">Escolha do modelo{decisao ? ` (${ROTULO_ORIGEM[decisao.origem]})` : ''}:</span> {e.motivoEscolha}
+                {decisao?.pedidoPeloPlano && <span className="mudo"> · o plano pediu {decisao.pedidoPeloPlano}</span>}
               </p>
+            )}
+            {decisao && decisao.candidatos.length > 0 && (
+              <details className="decisao">
+                <summary className="pequeno">Candidatos e pontuação no momento da escolha</summary>
+                <TabelaCandidatos candidatos={decisao.candidatos} escolhidoId={decisao.escolhidoId} />
+              </details>
             )}
             {e.erro && <p className="erro pequeno">{e.erro}</p>}
             {e.feedback && (
@@ -335,7 +351,7 @@ export function Problema() {
               </thead>
               <tbody>
                 {d.execucoes.map((e) => (
-                  <LinhaExecucao key={e.id} e={e} />
+                  <LinhaExecucao key={e.id} e={e} decisao={d.decisoes.find((x) => x.execucaoId === e.id)} />
                 ))}
               </tbody>
             </table>

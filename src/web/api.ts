@@ -1,6 +1,7 @@
 import type { EdicaoProjeto, ErroApi, NovoProjeto, Projeto, Saude } from '../shared/projetos';
 import type { EdicaoModelo, IdProvedor, Modelo, NovoModelo, Provedor } from '../shared/provedores';
 import type { DetalheRun, NovoRun, RelatorioUsage, Run } from '../shared/runs';
+import type { Criterios, CriteriosProjeto, PreviaPapel } from '../shared/criterios';
 import type { Definicao, EsteiraProjeto, SalvarEsteira } from '../shared/esteiras';
 import type {
   AcaoProblema,
@@ -97,6 +98,11 @@ export const api = {
     pedir<ResumoProblema>(`/api/problemas/${encodeURIComponent(id)}/acoes`, { method: 'POST', body: JSON.stringify({ acao }) }),
   decidir: (execucaoId: number, d: Decisao) =>
     pedir<ResumoProblema>(`/api/execucoes/${execucaoId}/decisao`, { method: 'POST', body: JSON.stringify(d) }),
+  criterios: (projeto: string) => pedir<CriteriosProjeto>(`/api/projetos/${encodeURIComponent(projeto)}/criterios`),
+  salvarCriterios: (projeto: string, c: Criterios) =>
+    pedir<CriteriosProjeto>(`/api/projetos/${encodeURIComponent(projeto)}/criterios`, { method: 'PUT', body: JSON.stringify(c) }),
+  previaCriterios: (projeto: string, c: Criterios) =>
+    pedir<PreviaPapel[]>(`/api/projetos/${encodeURIComponent(projeto)}/criterios/previa`, { method: 'POST', body: JSON.stringify(c) }),
   fila: () => pedir<EstadoFila>('/api/fila'),
   definirLimites: (l: LimitesFila) => pedir<LimitesFila>('/api/fila/limites', { method: 'PUT', body: JSON.stringify(l) }),
 };

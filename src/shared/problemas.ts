@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import type { DecisaoModelo } from './criterios.js';
 import type { Definicao, TipoEtapa } from './esteiras.js';
 import { idProjetoSchema } from './projetos.js';
 
@@ -137,6 +138,7 @@ export interface DetalheProblema {
   definicao: Definicao;
   tarefas: Tarefa[];
   execucoes: Execucao[];
+  decisoes: DecisaoModelo[];
 }
 
 export interface ItemFila {

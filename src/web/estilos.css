@@ -1387,3 +1387,129 @@ select:focus {
 .bloco ul.lista-fila {
   padding-left: 0;
 }
+
+/* ---- F5: critérios e decisões ---- */
+.abas {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--borda);
+  margin-bottom: 16px;
+}
+
+.aba {
+  all: unset;
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--texto-mudo);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-weight: 500;
+}
+
+.aba:hover {
+  color: var(--texto);
+}
+
+.aba.ativa {
+  color: var(--texto);
+  border-bottom-color: var(--primaria);
+}
+
+.aba:focus-visible {
+  outline: 2px solid var(--primaria);
+}
+
+.colunas-criterios {
+  grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+}
+
+.linha-peso {
+  display: grid;
+  grid-template-columns: 1fr 140px 24px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--borda);
+}
+
+.linha-peso:last-of-type {
+  border-bottom: none;
+}
+
+.linha-peso input[type='range'] {
+  accent-color: var(--primaria);
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.peso-valor {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.previa-papel {
+  margin-top: 14px;
+}
+
+.previa-papel h3 {
+  font-size: 14px;
+  margin: 0 0 6px;
+}
+
+.tabela-candidatos {
+  min-width: 560px;
+}
+
+.tabela-candidatos td,
+.tabela-candidatos th {
+  padding: 6px 10px;
+}
+
+.tabela-candidatos tr.escolhido td {
+  background: var(--superficie-2);
+}
+
+.barra-pontuacao {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.barra-pontuacao-trilho {
+  display: inline-block;
+  width: 80px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--trilho);
+  overflow: hidden;
+}
+
+.barra-pontuacao-valor {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--serie-1);
+}
+
+.selo-escolhido {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--ok);
+  border-color: currentColor;
+}
+
+.ok-texto {
+  color: var(--ok);
+}
+
+.decisao {
+  margin: 6px 0 10px;
+}
+
+@media (max-width: 900px) {
+  .colunas-criterios {
+    grid-template-columns: 1fr;
+  }
+}

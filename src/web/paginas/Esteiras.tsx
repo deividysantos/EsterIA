@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { api, ErroRequisicao } from '../api';
+import { EditorCriterios } from '../componentes/esteira/EditorCriterios';
 import { EditorEsteira } from '../componentes/esteira/EditorEsteira';
 
 function CriarEsteira({ projeto }: { projeto: string }) {
@@ -61,6 +62,9 @@ export function Esteiras() {
     retry: (n, err) => !(err instanceof ErroRequisicao && err.status === 404) && n < 1,
   });
   const semEsteira = esteira.error instanceof ErroRequisicao && esteira.error.status === 404;
+  const [params, setParams] = useSearchParams();
+  const aba = params.get('aba') === 'criterios' ? 'criterios' : 'etapas';
+  const criterios = useQuery({ queryKey: ['criterios', projeto], queryFn: () => api.criterios(projeto!), enabled: !!projeto && aba === 'criterios' });
 
   return (
     <section>
@@ -89,10 +93,31 @@ export function Esteiras() {
       )}
       {!projeto && !!projetos.data?.length && <p className="vazio">Escolha um projeto para ver ou editar a esteira dele.</p>}
 
-      {projeto && esteira.isLoading && <p className="mudo">Carregando…</p>}
-      {projeto && semEsteira && <CriarEsteira projeto={projeto} />}
-      {projeto && esteira.isError && !semEsteira && <p className="erro">{(esteira.error as Error).message}</p>}
-      {projeto && esteira.data && modelos.data && provedores.data && (
+      {projeto && (
+        <div className="abas" role="tablist">
+          <button role="tab" aria-selected={aba === 'etapas'} className={aba === 'etapas' ? 'aba ativa' : 'aba'} onClick={() => setParams({})}>
+            Etapas
+          </button>
+          <button
+            role="tab"
+            aria-selected={aba === 'criterios'}
+            className={aba === 'criterios' ? 'aba ativa' : 'aba'}
+            onClick={() => setParams({ aba: 'criterios' })}
+          >
+            Critérios de escolha do modelo
+          </button>
+        </div>
+      )}
+
+      {projeto && aba === 'criterios' && criterios.data && modelos.data && (
+        <EditorCriterios key={`${projeto}-${criterios.data.atualizadoEm}`} projeto={projeto} salvo={criterios.data} modelos={modelos.data} />
+      )}
+      {projeto && aba === 'criterios' && criterios.isError && <p className="erro">{(criterios.error as Error).message}</p>}
+
+      {projeto && aba === 'etapas' && esteira.isLoading && <p className="mudo">Carregando…</p>}
+      {projeto && aba === 'etapas' && semEsteira && <CriarEsteira projeto={projeto} />}
+      {projeto && aba === 'etapas' && esteira.isError && !semEsteira && <p className="erro">{(esteira.error as Error).message}</p>}
+      {projeto && aba === 'etapas' && esteira.data && modelos.data && provedores.data && (
         <EditorEsteira
           key={`${projeto}-${esteira.data.versaoAtual}`}
           projeto={projeto}

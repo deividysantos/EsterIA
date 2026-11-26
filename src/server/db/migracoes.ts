@@ -301,6 +301,36 @@ export const MIGRACOES: readonly Migracao[] = [
       `);
     },
   },
+  {
+    versao: 6,
+    nome: 'critérios de escolha e decisões',
+    aplicar(db) {
+      db.exec(`
+        CREATE TABLE criterios (
+          projeto TEXT PRIMARY KEY REFERENCES projetos(id) ON DELETE CASCADE,
+          criterios_json TEXT NOT NULL,
+          atualizado_em TEXT NOT NULL
+        ) STRICT;
+
+        -- Uma linha por escolha de modelo: candidatos, pontuação de cada um e por que o escolhido venceu.
+        CREATE TABLE decisoes (
+          id INTEGER PRIMARY KEY,
+          execucao_id INTEGER NOT NULL REFERENCES execucoes(id) ON DELETE CASCADE,
+          etapa_id TEXT NOT NULL,
+          papel TEXT,
+          origem TEXT NOT NULL CHECK (origem IN ('plano', 'pontuacao', 'fixo', 'escalada')),
+          pedido_pelo_plano TEXT,
+          escolhido_id INTEGER NOT NULL,
+          motivo TEXT NOT NULL,
+          candidatos_json TEXT NOT NULL,
+          criterios_json TEXT NOT NULL,
+          criado_em TEXT NOT NULL
+        ) STRICT;
+
+        CREATE INDEX idx_decisoes_execucao ON decisoes(execucao_id);
+      `);
+    },
+  },
 ];
 
 export const VERSAO_ESQUEMA = MIGRACOES.at(-1)?.versao ?? 0;

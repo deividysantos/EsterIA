@@ -5,6 +5,7 @@ import { acaoProblemaSchema, decisaoSchema, limitesSchema, novoProblemaSchema, t
 import { idProjetoSchema } from '../../shared/projetos.js';
 import type { Variaveis } from '../app.js';
 import { listarExecucoes, listarProblemas, listarTarefas, obterProblema, resumoProblema } from '../db/problemas.js';
+import { decisoesDoProblema } from '../db/criterios.js';
 import { lerJson } from './util.js';
 
 const estadoSchema = z.enum(['em_andamento', 'aguardando', 'bloqueado', 'pausado', 'concluido', 'cancelado']);
@@ -34,6 +35,7 @@ export function rotasProblemas() {
       definicao: c.get('motor').definicao(p),
       tarefas: listarTarefas(db, id).map(({ contadores: _c, feedback: _f, baseGit: _b, ...t }) => t),
       execucoes: listarExecucoes(db, id),
+      decisoes: decisoesDoProblema(db, id),
     };
     return c.json(corpo);
   });
