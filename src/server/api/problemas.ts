@@ -1,11 +1,12 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 
-import { acaoProblemaSchema, decisaoSchema, limitesSchema, novoProblemaSchema, type DetalheProblema, type EstadoProblema } from '../../shared/problemas.js';
+import { acaoProblemaSchema, decisaoItemSchema, decisaoSchema, limitesSchema, novoProblemaSchema, type DetalheProblema, type EstadoProblema } from '../../shared/problemas.js';
 import { idProjetoSchema } from '../../shared/projetos.js';
 import type { Variaveis } from '../app.js';
 import { listarExecucoes, listarProblemas, listarTarefas, obterProblema, resumoProblema } from '../db/problemas.js';
 import { decisoesDoProblema } from '../db/criterios.js';
+import { decidirItem, itensDoProblema } from '../db/qualidade.js';
 import { lerJson } from './util.js';
 
 const estadoSchema = z.enum(['em_andamento', 'aguardando', 'bloqueado', 'pausado', 'concluido', 'cancelado']);
@@ -36,6 +37,7 @@ export function rotasProblemas() {
       tarefas: listarTarefas(db, id).map(({ contadores: _c, feedback: _f, baseGit: _b, ...t }) => t),
       execucoes: listarExecucoes(db, id),
       decisoes: decisoesDoProblema(db, id),
+      itensParecer: itensDoProblema(db, id),
     };
     return c.json(corpo);
   });
@@ -62,5 +64,17 @@ export function rotasFila() {
   const r = new Hono<Variaveis>();
   r.get('/', (c) => c.json(c.get('motor').estadoFila()));
   r.put('/limites', async (c) => c.json(c.get('motor').definirLimites(limitesSchema.parse(await lerJson(c.req.raw)))));
+  return r;
+}
+
+export function rotasItensParecer() {
+  const r = new Hono<Variaveis>();
+  r.patch('/:id', async (c) => {
+    const id = z.coerce.number().int().positive().parse(c.req.param('id'));
+    const { decisao } = decisaoItemSchema.parse(await lerJson(c.req.raw));
+    const { problema, ...item } = decidirItem(c.get('db'), id, decisao);
+    c.get('aoVivo').publicar({ tipo: 'problema', problema: resumoProblema(c.get('db'), problema) });
+    return c.json(item);
+  });
   return r;
 }

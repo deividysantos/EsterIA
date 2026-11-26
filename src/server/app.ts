@@ -11,7 +11,7 @@ import { rotasCriterios } from './api/criterios.js';
 import { rotasEsteiras } from './api/esteiras.js';
 import { rotasProjetos } from './api/projetos.js';
 import { rotasModelos, rotasProvedores } from './api/provedores.js';
-import { rotasExecucoes, rotasFila, rotasProblemas } from './api/problemas.js';
+import { rotasExecucoes, rotasFila, rotasItensParecer, rotasProblemas } from './api/problemas.js';
 import { rotaAoVivo, rotasRuns, rotasUsage } from './api/runs.js';
 import { AoVivo } from './aoVivo.js';
 import { Motor } from './motor/motor.js';
@@ -125,6 +125,7 @@ export function criarApp(opcoes: OpcoesApp): Hono<Variaveis> {
   app.route('/api/problemas', rotasProblemas());
   app.route('/api/execucoes', rotasExecucoes());
   app.route('/api/fila', rotasFila());
+  app.route('/api/itens-parecer', rotasItensParecer());
 
   app.all('/api/*', (c) =>
     c.json({ erro: 'Rota não encontrada.', codigo: 'NAO_ENCONTRADO' } satisfies ErroApi, 404)

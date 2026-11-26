@@ -1,9 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 
+import { FONTE_COTA } from '../../shared/qualidade';
 import type { DiaUsage, LimiteAtual } from '../../shared/runs';
 import { api } from '../api';
 import { useAoVivo } from '../aoVivo';
+import { GraficoCotas } from '../componentes/GraficoCotas';
 import { dataHora, dolar, duracao, inteiro, tokensCompacto } from '../formatar';
 
 const PERIODOS = [
@@ -112,12 +115,164 @@ function Medidor({ l }: { l: LimiteAtual }) {
   );
 }
 
+const pct = (v: number | null) => (v === null ? '—' : `${Math.round(v * 100)}%`);
+
+function Severidades({ s }: { s: { alta: number; media: number; baixa: number } }) {
+  if (!s.alta && !s.media && !s.baixa) return <span className="mudo">—</span>;
+  return (
+    <span className="nowrap">
+      <span className="sev sev-alta" title="alta">{s.alta}</span> <span className="sev sev-media" title="média">{s.media}</span>{' '}
+      <span className="sev sev-baixa" title="baixa">{s.baixa}</span>
+    </span>
+  );
+}
+
+function Qualidade({ dias, projeto }: { dias: number; projeto: string }) {
+  const q = useQuery({ queryKey: ['usage', 'qualidade', dias, projeto], queryFn: () => api.qualidade(dias, projeto || undefined) });
+  if (q.isError) return <p className="erro">{(q.error as Error).message}</p>;
+  const d = q.data;
+  return (
+    <>
+      <div className="bloco">
+        <h2>Qualidade como executor</h2>
+        <p className="mudo pequeno">O modelo da primeira execução responde pela tarefa. Severidades: alta · média · baixa.</p>
+        {d && !d.executores.length ? (
+          <p className="mudo">Nenhuma tarefa executada no período.</p>
+        ) : (
+          <div className="tabela-rolagem">
+            <table className="tabela tabela-numeros">
+              <thead>
+                <tr>
+                  <th>Modelo</th>
+                  <th>Tarefas</th>
+                  <th>Concluídas</th>
+                  <th title="Das tarefas revisadas, quantas passaram na primeira revisão">Aprovadas de primeira</th>
+                  <th title="Execuções por tarefa; 1 = sem retrabalho">Tentativas médias</th>
+                  <th>Problemas apontados</th>
+                  <th>Custo médio/tarefa</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d?.executores.map((e) => (
+                  <tr key={e.modeloId}>
+                    <td>
+                      <div className="forte">{e.nome}</div>
+                      <div className="mudo pequeno">{e.familia}</div>
+                    </td>
+                    <td>{e.tarefas}</td>
+                    <td>{e.tarefasConcluidas}</td>
+                    <td>
+                      {e.tarefasRevisadas ? `${pct(e.aprovadasDePrimeira / e.tarefasRevisadas)} (${e.aprovadasDePrimeira}/${e.tarefasRevisadas})` : '—'}
+                    </td>
+                    <td>{e.tentativasMedias === null ? '—' : e.tentativasMedias.toFixed(1)}</td>
+                    <td>
+                      <Severidades s={e.apontados} />
+                    </td>
+                    <td>{dolar(e.custoMedioTarefa)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="bloco">
+        <h2>Revisores e críticos</h2>
+        <p className="mudo pequeno">
+          Precisão = pontos que você marcou como “procede” sobre os avaliados. Marque os pontos no detalhe de cada problema; a
+          precisão pode pesar na escolha de revisores (critérios do projeto).
+        </p>
+        {d && !d.revisores.length ? (
+          <p className="mudo">Nenhum parecer no período.</p>
+        ) : (
+          <div className="tabela-rolagem">
+            <table className="tabela tabela-numeros">
+              <thead>
+                <tr>
+                  <th>Modelo</th>
+                  <th>Pareceres</th>
+                  <th>Reprovações</th>
+                  <th>Pontos levantados</th>
+                  <th>Precisão</th>
+                  <th>Sem avaliação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d?.revisores.map((r) => (
+                  <tr key={r.modeloId}>
+                    <td>
+                      <div className="forte">{r.nome}</div>
+                      <div className="mudo pequeno">{r.familia}</div>
+                    </td>
+                    <td>{r.pareceres}</td>
+                    <td>{r.reprovacoes}</td>
+                    <td>
+                      <Severidades s={r.itens} />
+                    </td>
+                    <td>
+                      {pct(r.precisao)}
+                      {r.procede + r.naoProcede > 0 && <span className="mudo"> ({r.procede}/{r.procede + r.naoProcede})</span>}
+                    </td>
+                    <td>{r.semAvaliacao}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="bloco">
+        <h2>Por problema</h2>
+        {d && !d.problemas.length ? (
+          <p className="mudo">Nenhum problema no período.</p>
+        ) : (
+          <div className="tabela-rolagem">
+            <table className="tabela tabela-numeros">
+              <thead>
+                <tr>
+                  <th>Problema</th>
+                  <th>Tarefas</th>
+                  <th>Execuções</th>
+                  <th title="Execuções de executor além da primeira">Retrabalhos</th>
+                  <th>Duração</th>
+                  <th>Custo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d?.problemas.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <Link to={`/problemas/${p.id}`} className="link forte">
+                        {p.projeto} #{p.numero} {p.titulo}
+                      </Link>
+                      <div className="mudo pequeno">{p.estado}</div>
+                    </td>
+                    <td>{p.tarefas}</td>
+                    <td>{p.execucoes}</td>
+                    <td>{p.retrabalhos}</td>
+                    <td>{duracao(p.duracaoMs)}</td>
+                    <td>{dolar(p.custoUsd)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 export function Usage() {
   useAoVivo();
   const [dias, setDias] = useState(30);
   const [projeto, setProjeto] = useState('');
   const projetos = useQuery({ queryKey: ['projetos', false], queryFn: () => api.projetos(false) });
   const rel = useQuery({ queryKey: ['usage', dias, projeto], queryFn: () => api.usage(dias, projeto || undefined) });
+  const cotas = useQuery({ queryKey: ['usage', 'cotas', dias], queryFn: () => api.historicoCotas(dias === 0 || dias > 30 ? 30 : dias) });
+  const fila = useQuery({ queryKey: ['fila'], queryFn: api.fila });
 
   const totais = useMemo(() => {
     const l = rel.data?.porModelo ?? [];
@@ -140,7 +295,7 @@ export function Usage() {
       <header className="cabecalho">
         <div>
           <h1>Usage</h1>
-          <p className="mudo subtitulo">Tokens e custo por modelo. Métricas de qualidade entram na F6.</p>
+          <p className="mudo subtitulo">Tokens, custo, cotas e qualidade por modelo: quem executa bem, quem revisa com precisão, quanto custa cada problema.</p>
         </div>
         <div className="cabecalho-acoes filtros">
           <div className="segmentado" role="group" aria-label="Período">
@@ -194,15 +349,28 @@ export function Usage() {
       <div className="bloco">
         <h2>Cotas das assinaturas</h2>
         <p className="mudo pequeno">
-          Último valor informado pelo próprio CLI durante um run (hoje só o Claude Code envia). Dado não oficial: pode mudar
-          com atualizações do CLI.
+          Último valor lido de cada janela. Dado não oficial: pode mudar com atualizações dos CLIs. Acima do limite da fila
+          ({fila.data?.limites.cotaMaxima === null ? 'desligado' : `${fila.data?.limites.cotaMaxima ?? '—'}%`}), o provedor não recebe
+          etapas novas.
         </p>
         {rel.data && rel.data.limites.length === 0 ? (
           <p className="mudo">Nenhuma leitura de cota ainda.</p>
         ) : (
           <ul className="medidores">{rel.data?.limites.map((l) => <Medidor key={`${l.provedor}-${l.janela}`} l={l} />)}</ul>
         )}
+        <h3 className="subtitulo-bloco">Ao longo do tempo ({dias === 0 || dias > 30 ? 'últimos 30 dias' : PERIODOS.find((p) => p.dias === dias)?.rotulo})</h3>
+        {cotas.data && <GraficoCotas pontos={cotas.data} limite={fila.data?.limites.cotaMaxima ?? null} />}
+        <dl className="campos fontes-cota">
+          {Object.entries(FONTE_COTA).map(([p, t]) => (
+            <div key={p} className="contents">
+              <dt>{NOME_PROVEDOR[p]}</dt>
+              <dd className="mudo pequeno">{t}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
+
+      <Qualidade dias={dias} projeto={projeto} />
 
       <div className="bloco">
         <h2>Por modelo</h2>

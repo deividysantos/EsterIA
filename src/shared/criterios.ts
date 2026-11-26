@@ -13,6 +13,7 @@ export const METRICAS = [
   'conclusao',
   'custo_medido',
   'duracao_medida',
+  'precisao_revisor',
 ] as const;
 export type MetricaId = (typeof METRICAS)[number];
 
@@ -37,6 +38,12 @@ export const META_METRICAS: Record<MetricaId, MetaMetrica> = {
   conclusao: { rotulo: 'Taxa de conclusão', descricao: 'Fração dos runs do modelo que terminaram sem falha.', origem: 'medida', maiorMelhor: true },
   custo_medido: { rotulo: 'Custo médio medido', descricao: 'Custo médio por run (USD), do histórico.', origem: 'medida', maiorMelhor: false },
   duracao_medida: { rotulo: 'Duração média medida', descricao: 'Tempo médio por run, do histórico.', origem: 'medida', maiorMelhor: false },
+  precisao_revisor: {
+    rotulo: 'Precisão como revisor',
+    descricao: 'Fração dos pontos de parecer do modelo que você marcou como “procede”. Serve para escolher revisores.',
+    origem: 'medida',
+    maiorMelhor: true,
+  },
 };
 
 export const criteriosSchema = z.object({
@@ -61,7 +68,7 @@ export type Criterios = z.infer<typeof criteriosSchema>;
 
 export const CRITERIOS_PADRAO: Criterios = {
   modo: 'orquestrador',
-  pesos: { qualidade: 5, custo: 3, velocidade: 2, aprovacao_primeira: 0, conclusao: 0, custo_medido: 0, duracao_medida: 0 },
+  pesos: { qualidade: 5, custo: 3, velocidade: 2, aprovacao_primeira: 0, conclusao: 0, custo_medido: 0, duracao_medida: 0, precisao_revisor: 0 },
   historico: 'todos',
   amostrasMinimas: 3,
   excluidos: [],

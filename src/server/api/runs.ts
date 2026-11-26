@@ -7,6 +7,7 @@ import { idProvedorSchema } from '../../shared/provedores.js';
 import { novoRunSchema, type MensagemAoVivo } from '../../shared/runs.js';
 import type { Variaveis } from '../app.js';
 import { brutoEvento, detalharRun, listarRuns } from '../db/runs.js';
+import { historicoCotas, relatorioQualidade } from '../db/qualidade.js';
 import { relatorioUsage } from '../db/usage.js';
 import { lerJson } from './util.js';
 
@@ -48,6 +49,15 @@ export function rotasRuns() {
 
 export function rotasUsage() {
   const r = new Hono<Variaveis>();
+  const periodo = (bruto: string | undefined, padrao: number) => {
+    const dias = z.coerce.number().int().min(0).max(3650).default(padrao).parse(bruto ?? padrao);
+    return dias === 0 ? null : new Date(Date.now() - dias * 86_400_000).toISOString();
+  };
+  r.get('/qualidade', (c) => {
+    const projeto = c.req.query('projeto');
+    return c.json(relatorioQualidade(c.get('db'), { desde: periodo(c.req.query('dias'), 30), projeto: projeto ? idProjetoSchema.parse(projeto) : null }));
+  });
+  r.get('/cotas', (c) => c.json(historicoCotas(c.get('db'), periodo(c.req.query('dias'), 7) ?? '0000')));
   r.get('/', (c) => {
     const dias = z.coerce.number().int().min(0).max(3650).default(30).parse(c.req.query('dias') ?? 30);
     const projeto = c.req.query('projeto');

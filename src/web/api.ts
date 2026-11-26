@@ -2,10 +2,13 @@ import type { EdicaoProjeto, ErroApi, NovoProjeto, Projeto, Saude } from '../sha
 import type { EdicaoModelo, IdProvedor, Modelo, NovoModelo, Provedor } from '../shared/provedores';
 import type { DetalheRun, NovoRun, RelatorioUsage, Run } from '../shared/runs';
 import type { Criterios, CriteriosProjeto, PreviaPapel } from '../shared/criterios';
+import type { PontoCota, RelatorioQualidade } from '../shared/qualidade';
 import type { Definicao, EsteiraProjeto, SalvarEsteira } from '../shared/esteiras';
 import type {
   AcaoProblema,
   Decisao,
+  DecisaoItem,
+  ItemParecer,
   DetalheProblema,
   EstadoFila,
   LimitesFila,
@@ -103,6 +106,11 @@ export const api = {
     pedir<CriteriosProjeto>(`/api/projetos/${encodeURIComponent(projeto)}/criterios`, { method: 'PUT', body: JSON.stringify(c) }),
   previaCriterios: (projeto: string, c: Criterios) =>
     pedir<PreviaPapel[]>(`/api/projetos/${encodeURIComponent(projeto)}/criterios/previa`, { method: 'POST', body: JSON.stringify(c) }),
+  qualidade: (dias: number, projeto?: string) =>
+    pedir<RelatorioQualidade>(`/api/usage/qualidade?dias=${dias}${projeto ? `&projeto=${encodeURIComponent(projeto)}` : ''}`),
+  historicoCotas: (dias: number) => pedir<PontoCota[]>(`/api/usage/cotas?dias=${dias}`),
+  decidirItem: (id: number, decisao: DecisaoItem | null) =>
+    pedir<ItemParecer>(`/api/itens-parecer/${id}`, { method: 'PATCH', body: JSON.stringify({ decisao }) }),
   fila: () => pedir<EstadoFila>('/api/fila'),
   definirLimites: (l: LimitesFila) => pedir<LimitesFila>('/api/fila/limites', { method: 'PUT', body: JSON.stringify(l) }),
 };

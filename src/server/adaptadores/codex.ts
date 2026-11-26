@@ -1,3 +1,4 @@
+import { leiturasDeEvento } from '../provedores/cotaCodex.js';
 import { evento, num, obj, resumir, str } from './util.js';
 import { EstadoLeitura, type Adaptador, type EventoLido, type Leitor } from './tipos.js';
 
@@ -80,6 +81,12 @@ function criarLeitor(): Leitor {
       falhou = true;
       estado.erro = str(obj(o.error)?.message) ?? str(o.message) ?? 'O Codex falhou.';
       return [evento('erro', estado.erro, { bruto: o })];
+    }
+    // Se o exec --json trouxer cota (rate_limits), aproveita.
+    const cotas = leiturasDeEvento(o);
+    if (cotas.length) {
+      estado.limites.push(...cotas);
+      return [evento('limite', `Cota ${cotas.map((c) => `${c.janela}: ${Math.round((c.utilizacao ?? 0) * 100)}%`).join(' · ')}`)];
     }
     if (tipo === 'turn.started' || tipo === 'item.started' || tipo === 'item.updated') return [];
     return [evento('outro', resumir(o, 2000), { bruto: o })];

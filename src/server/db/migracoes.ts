@@ -331,6 +331,47 @@ export const MIGRACOES: readonly Migracao[] = [
       `);
     },
   },
+  {
+    versao: 7,
+    nome: 'itens de parecer',
+    aplicar(db) {
+      db.exec(`
+        CREATE TABLE parecer_itens (
+          id INTEGER PRIMARY KEY,
+          execucao_id INTEGER NOT NULL REFERENCES execucoes(id) ON DELETE CASCADE,
+          indice INTEGER NOT NULL,
+          arquivo TEXT NOT NULL DEFAULT '',
+          linha INTEGER,
+          severidade TEXT NOT NULL CHECK (severidade IN ('alta', 'media', 'baixa')),
+          descricao TEXT NOT NULL DEFAULT '',
+          sugestao TEXT NOT NULL DEFAULT '',
+          decisao TEXT CHECK (decisao IN ('procede', 'nao_procede')),
+          decidido_em TEXT,
+          UNIQUE (execucao_id, indice)
+        ) STRICT;
+      `);
+      // Pareceres gravados antes desta versão viram itens (sem avaliação).
+      const ins = db.prepare(
+        'INSERT INTO parecer_itens (execucao_id, indice, arquivo, linha, severidade, descricao, sugestao) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      );
+      const linhas = db
+        .prepare("SELECT id, saida_json FROM execucoes WHERE tipo IN ('revisar', 'criticar_plano', 'prompt_livre') AND saida_json IS NOT NULL")
+        .all() as { id: number; saida_json: string }[];
+      for (const l of linhas) {
+        let p: { aprovado?: unknown; problemas?: unknown };
+        try {
+          p = JSON.parse(l.saida_json);
+        } catch {
+          continue;
+        }
+        if (typeof p?.aprovado !== 'boolean' || !Array.isArray(p.problemas)) continue;
+        p.problemas.forEach((x: Record<string, unknown>, i: number) => {
+          const sev = ['alta', 'media', 'baixa'].includes(String(x?.severidade)) ? String(x.severidade) : 'media';
+          ins.run(l.id, i, String(x?.arquivo ?? ''), typeof x?.linha === 'number' ? x.linha : null, sev, String(x?.descricao ?? ''), String(x?.sugestao ?? ''));
+        });
+      }
+    },
+  },
 ];
 
 export const VERSAO_ESQUEMA = MIGRACOES.at(-1)?.versao ?? 0;

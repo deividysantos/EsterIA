@@ -9,6 +9,7 @@ import {
   type OrigemDecisao,
 } from '../../shared/criterios.js';
 import type { Banco } from './banco.js';
+import { precisaoRevisores } from './qualidade.js';
 
 export function obterCriterios(db: Banco, projeto: string): CriteriosProjeto {
   const r = db.prepare('SELECT criterios_json, atualizado_em FROM criterios WHERE projeto = ?').get(projeto) as
@@ -83,6 +84,11 @@ export function metricasMedidas(
     const atual = saida.get(a.m) ?? {};
     atual.aprovacao_primeira = { valor: a.n ? a.ok / a.n : null, amostras: a.n };
     saida.set(a.m, atual);
+  }
+  for (const [m, p] of precisaoRevisores(db, modeloIds, projeto)) {
+    const atual = saida.get(m) ?? {};
+    atual.precisao_revisor = p;
+    saida.set(m, atual);
   }
   return saida;
 }

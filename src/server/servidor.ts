@@ -11,6 +11,7 @@ import { AoVivo } from './aoVivo.js';
 import { marcarInterrompidos } from './db/runs.js';
 import { Executor } from './runs/executor.js';
 import { Motor } from './motor/motor.js';
+import { importarCotasCodex } from './provedores/cotaCodex.js';
 
 export interface OpcoesServidor {
   caminhoBanco: string;
@@ -64,6 +65,18 @@ export async function iniciarServidor(opcoes: OpcoesServidor): Promise<ServidorA
   // O motor só começa depois da verificação, para não bloquear problemas por um provedor ainda não verificado.
   const motorPronto = opcoes.iniciarMotor === false ? Promise.resolve() : verificacao.then(() => motor.iniciar());
 
+  // Cota do Codex pelas sessões locais (melhor esforço), agora e a cada 5 min.
+  const lerCodex = () => {
+    try {
+      importarCotasCodex(db);
+    } catch (err) {
+      console.error('[painel] falha ao ler cota do Codex:', err);
+    }
+  };
+  lerCodex();
+  const timerCodex = setInterval(lerCodex, 5 * 60_000);
+  timerCodex.unref();
+
   const porta = (server.address() as AddressInfo).port;
   const hostUrl = host.includes(':') ? `[${host}]` : host;
 
@@ -76,6 +89,7 @@ export async function iniciarServidor(opcoes: OpcoesServidor): Promise<ServidorA
     async fechar() {
       if (fechado) return;
       fechado = true;
+      clearInterval(timerCodex);
       await motorPronto;
       await motor.parar();
       await executor.encerrar();

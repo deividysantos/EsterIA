@@ -13,6 +13,8 @@ import { abrirBanco, type Banco } from '../src/server/db/banco.ts';
 import { criarEsteira } from '../src/server/db/esteiras.ts';
 import { CRITERIOS_PADRAO } from '../src/shared/criterios.ts';
 import { decisoesDoProblema, metricasMedidas, salvarCriterios } from '../src/server/db/criterios.ts';
+import { decidirItem, itensDoProblema, relatorioQualidade } from '../src/server/db/qualidade.ts';
+import { gravarLimites } from '../src/server/db/runs.ts';
 import { criarModelo, editarModelo, listarModelos } from '../src/server/db/modelos.ts';
 import {
   atualizarExecucao,
@@ -510,6 +512,73 @@ describe('motor: critérios de escolha', () => {
   });
 });
 
+describe('motor: qualidade e cota', () => {
+  it('grava os itens do parecer, mede qualidade e a precisão do revisor entra nas métricas', async () => {
+    await montar((def) => {
+      def.etapas.find((e) => e.id === 'aprovar-plano')!.ativa = false;
+    });
+    roteiro([
+      { se: SE_PLANO, resposta: PLANO([DUAS_TAREFAS[0]!]) },
+      { se: SE_PARECER, resposta: PARECER(false), vezes: 1 },
+      { se: SE_PARECER, resposta: PARECER(true) },
+      { se: SE_EXEC, resposta: RESUMO(['a.txt']), escrever: { 'a.txt': 'a\n' } },
+    ]);
+    criar();
+    await rodar();
+    const itens = itensDoProblema(amb.db, problemaId);
+    assert.equal(itens.length, 1);
+    assert.equal(itens[0]!.severidade, 'alta');
+    assert.equal(itens[0]!.decisao, null);
+
+    const rel = relatorioQualidade(amb.db, { desde: null });
+    const ex = rel.executores.find((e) => e.nome === 'Claude Sonnet 5.5')!;
+    assert.equal(ex.tarefas, 1);
+    assert.equal(ex.tarefasRevisadas, 1);
+    assert.equal(ex.aprovadasDePrimeira, 0);
+    assert.equal(ex.tentativasMedias, 2);
+    assert.deepEqual(ex.apontados, { alta: 1, media: 0, baixa: 0 });
+    const rv = rel.revisores.find((r) => r.nome === 'Revisor falso')!;
+    assert.equal(rv.pareceres, 2);
+    assert.equal(rv.reprovacoes, 1);
+    assert.equal(rv.semAvaliacao, 1);
+    assert.equal(rv.precisao, null);
+    const pr = rel.problemas[0]!;
+    assert.equal(pr.retrabalhos, 1);
+    assert.ok(pr.duracaoMs !== null && pr.custoUsd > 0);
+
+    decidirItem(amb.db, itens[0]!.id, 'procede');
+    const med = metricasMedidas(amb.db, [amb.ids.revisor], null).get(amb.ids.revisor)!;
+    assert.deepEqual(med.precisao_revisor, { valor: 1, amostras: 1 });
+    assert.equal(relatorioQualidade(amb.db, { desde: null }).revisores[0]!.precisao, 1);
+  });
+
+  it('cota acima do limite: o orquestrador evita o provedor e etapa fixa espera na fila', async () => {
+    await montar();
+    // Cota de 97% que só reinicia amanhã.
+    gravarLimites(amb.db, 'claude', null, [{ janela: 'five_hour', utilizacao: 0.97, status: 'allowed', reiniciaEm: new Date(Date.now() + 86_400_000).toISOString() }]);
+    roteiro([{ se: SE_PLANO, resposta: PLANO([DUAS_TAREFAS[0]!]) }]);
+    criar();
+    await rodar();
+    assert.equal(listarExecucoes(amb.db, problemaId).length, 0, 'planejar (modelo fixo no Claude) espera a cota');
+    assert.equal(obterProblema(amb.db, problemaId).estado, 'em_andamento');
+    const fila = amb.motor.estadoFila();
+    assert.equal(fila.cotas[0]!.janela, 'five_hour');
+    assert.equal(fila.naFila, 1);
+    const previa = amb.motor.previa('proj');
+    assert.match(previa[0]!.candidatos[0]!.excluidoPor!, /cota five_hour em 97% \(limite 95%/);
+
+    // Limite desligado: segue.
+    amb.motor.definirLimites({ global: 3, porProvedor: 2, cotaMaxima: null });
+    await rodar();
+    assert.equal(obterProblema(amb.db, problemaId).estado, 'aguardando');
+
+    // Cota já reiniciada não conta.
+    gravarLimites(amb.db, 'claude', null, [{ janela: 'seven_day', utilizacao: 0.99, status: null, reiniciaEm: new Date(Date.now() - 1000).toISOString() }]);
+    amb.motor.definirLimites({ global: 3, porProvedor: 2, cotaMaxima: 95 });
+    assert.equal(amb.motor.cotasEstouradas().get('claude')!.startsWith('cota five_hour'), true);
+  });
+});
+
 describe('API de problemas e fila', () => {
   it('cria, detalha, decide, age e configura limites', async () => {
     await montar();
@@ -540,7 +609,7 @@ describe('API de problemas e fila', () => {
     assert.equal((await postar(`/api/problemas/${id}/acoes`, { acao: 'pausar' })).status, 200);
 
     const fila = (await (await pedir('/api/fila')).json()) as import('../src/shared/problemas.ts').EstadoFila;
-    assert.deepEqual(fila.limites, { global: 3, porProvedor: 2 });
+    assert.deepEqual(fila.limites, { global: 3, porProvedor: 2, cotaMaxima: 95 });
     assert.equal(fila.aguardandoVoce.length, 1);
     assert.equal((await pedir('/api/fila/limites', { method: 'PUT', body: JSON.stringify({ global: 0, porProvedor: 1 }) })).status, 400);
     assert.equal((await pedir('/api/fila/limites', { method: 'PUT', body: JSON.stringify({ global: 2, porProvedor: 1 }) })).status, 200);

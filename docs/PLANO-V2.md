@@ -112,7 +112,7 @@ Cada fase termina usável e testada.
 | **F3 — Esteira** | Editor de esteira por projeto, versões, modelo padrão. |
 | **F4 — Motor e fila** | Jobs, concorrência, retentativas, aprovação humana, cancelamento. Feito: tarefas do mesmo problema rodam uma por vez; worktree por tarefa (paralelismo) ficou para depois. |
 | **F5 — Orquestrador e critérios** | Etapa de planejamento estruturada, perguntas pela interface, critérios com pesos, regras rígidas, registro de decisões. |
-| **F6 — Qualidade e limites** | Métricas de qualidade, precisão do revisor, snapshots de cota, uso das métricas na escolha. |
+| **F6 — Qualidade e limites** | Métricas de qualidade, precisão do revisor, snapshots de cota, uso das métricas na escolha. Feito: a precisão vem das suas marcações (procede / não procede); cota do Claude pelos runs e do Codex pelas sessões locais; Cursor e Antigravity não informam cota. |
 | **F7 — Instalação** | Instalador, `doctor`, MCP registrado, `painel init` em qualquer projeto. |
 
 ## 8. Riscos e pendências

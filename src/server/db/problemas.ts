@@ -448,11 +448,14 @@ export function execucoesOrfas(db: Banco): Execucao[] {
 
 // ---------- Configurações ----------
 
-export const LIMITES_PADRAO: LimitesFila = { global: 3, porProvedor: 2 };
+export const LIMITES_PADRAO: LimitesFila = { global: 3, porProvedor: 2, cotaMaxima: 95 };
 
 export function lerConfig<T>(db: Banco, chave: string, padrao: T): T {
   const r = db.prepare('SELECT valor_json FROM configuracoes WHERE chave = ?').get(chave) as { valor_json: string } | undefined;
-  return r ? (JSON.parse(r.valor_json) as T) : padrao;
+  if (!r) return padrao;
+  const v = JSON.parse(r.valor_json) as T;
+  // Objetos salvos por versões antigas ganham os campos novos do padrão.
+  return padrao && typeof padrao === 'object' && v && typeof v === 'object' ? { ...padrao, ...v } : v;
 }
 
 export function gravarConfig(db: Banco, chave: string, valor: unknown) {

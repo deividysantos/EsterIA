@@ -1513,3 +1513,146 @@ select:focus {
     grid-template-columns: 1fr;
   }
 }
+/* ---- F6: qualidade, pareceres e cotas ---- */
+:root {
+  /* Paleta categórica de referência (slots 1 a 4, ordem fixa). */
+  --cat-1: #2a78d6;
+  --cat-2: #eb6834;
+  --cat-3: #1baf7a;
+  --cat-4: #eda100;
+  --sev-alta: #d03b3b;
+  --sev-media: #ec835a;
+  --sev-baixa: #8a8f98;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cat-1: #3987e5;
+    --cat-2: #d95926;
+    --cat-3: #199e70;
+    --cat-4: #c98500;
+  }
+}
+
+.sev {
+  display: inline-block;
+  min-width: 18px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+}
+
+.sev-alta {
+  color: var(--sev-alta);
+}
+
+.sev-media {
+  color: var(--sev-media);
+}
+
+.sev-baixa {
+  color: var(--sev-baixa);
+}
+
+.itens-parecer ol {
+  margin: 6px 0 10px;
+  padding-left: 20px;
+}
+
+.item-parecer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--borda);
+  font-size: 13px;
+}
+
+.item-parecer:last-child {
+  border-bottom: none;
+}
+
+.item-nao_procede > div:first-child {
+  opacity: 0.6;
+}
+
+.botoes-item {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.subtitulo-bloco {
+  font-size: 14px;
+  margin: 18px 0 6px;
+}
+
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legenda-amostra {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.legenda-limite {
+  width: 14px;
+  border-top: 2px dashed var(--texto-mudo);
+}
+
+.grafico-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.grafico-svg .grade {
+  stroke: var(--borda);
+  stroke-width: 1;
+}
+
+.grafico-svg .eixo {
+  fill: var(--texto-mudo);
+  font-size: 10px;
+}
+
+.grafico-svg .rotulo-serie {
+  fill: var(--texto);
+  font-size: 10px;
+}
+
+.grafico-svg .linha-limite {
+  stroke: var(--texto-mudo);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+
+.grafico-svg .cruz {
+  stroke: var(--texto-mudo);
+  stroke-width: 1;
+}
+
+.fontes-cota {
+  margin-top: 12px;
+}
+
+.contents {
+  display: contents;
+}

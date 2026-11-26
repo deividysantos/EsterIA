@@ -60,6 +60,7 @@ import { descreverCriterios, pontuar } from './pontuacao.js';
 import { aposFalha, blocoTarefas, decidir, type Resultado } from './proximo.js';
 import type { CandidatoPontuado, Criterios, OrigemDecisao, PreviaPapel } from '../../shared/criterios.js';
 import { metricasMedidas, obterCriterios, registrarDecisao } from '../db/criterios.js';
+import { cotasVigentes, gravarItensParecer } from '../db/qualidade.js';
 
 interface Escolha {
   modelo: Modelo;
@@ -222,6 +223,10 @@ export class Motor {
       rodando: emCurso.filter((e) => e.estado === 'rodando').map(item),
       aguardandoVoce: emCurso.filter((e) => e.estado === 'aguardando').map(item),
       bloqueados: listarProblemas(this.db, { estado: 'bloqueado' }),
+      cotas: (() => {
+        const limite = this.limites().cotaMaxima;
+        return limite === null ? [] : cotasVigentes(this.db).filter((c) => c.utilizacao * 100 >= limite);
+      })(),
       naFila: listarProblemasAtivos(this.db).filter((p) => !comExec.has(p.id)).length,
     };
   }
@@ -307,9 +312,11 @@ export class Motor {
     const base = ids ? ids.map((i) => todos.find((m) => m.id === i)).filter((m): m is Modelo => !!m) : todos.filter((m) => m.ativo);
 
     const exclusoes = new Map<number, string>();
+    const cotas = this.cotasEstouradas();
     for (const m of base) {
       if (!m.ativo) exclusoes.set(m.id, 'modelo desativado');
       else if (!hab.has(m.provedor)) exclusoes.set(m.id, 'provedor não habilitado nesta máquina');
+      else if (cotas.has(m.provedor)) exclusoes.set(m.id, cotas.get(m.provedor)!);
     }
     const ref = etapa.agente?.modo === 'orquestrador' ? etapa.agente.familiaDiferenteDe : null;
     if (ref && p) {
@@ -346,7 +353,7 @@ export class Motor {
     p: ProblemaInterno,
     tarefa: TarefaInterna | null,
     tentativa: number
-  ): Escolha | { erro: string } {
+  ): Escolha | { erro: string } | { esperar: string } {
     const todos = listarModelos(this.db);
     const hab = new Set(listarProvedores(this.db).filter((x) => x.habilitado).map((x) => x.id));
     const disponivel = (m: Modelo | undefined): m is Modelo => !!m && m.ativo && hab.has(m.provedor);
@@ -362,7 +369,11 @@ export class Motor {
     if (etapa.agente?.modo === 'fixo') {
       const id = etapa.agente.modeloId;
       const m = todos.find((x) => x.id === id);
-      if (disponivel(m)) return { modelo: m, motivo: 'modelo fixo da etapa', origem: 'fixo', papel, pedido: null, candidatos: [], criterios };
+      if (disponivel(m)) {
+        const cota = this.cotasEstouradas().get(m.provedor);
+        if (cota) return { esperar: cota };
+        return { modelo: m, motivo: 'modelo fixo da etapa', origem: 'fixo', papel, pedido: null, candidatos: [], criterios };
+      }
       const nome = todos.find((x) => x.id === id)?.nome ?? `modelo ${id}`;
       return { erro: `${etapa.nome}: ${nome} não está disponível (inativo ou provedor não habilitado).` };
     }
@@ -370,6 +381,8 @@ export class Motor {
       const candidatos = this.pontuarCandidatos(p.projeto, etapa, p, tarefa);
       const elegiveis = candidatos.filter((c) => c.elegivel);
       if (!elegiveis.length) {
+        const porCota = candidatos.filter((c) => c.excluidoPor?.startsWith('cota '));
+        if (porCota.length) return { esperar: porCota[0]!.excluidoPor! };
         const motivos = candidatos.map((c) => `${c.nome}: ${c.excluidoPor}`).join('; ');
         return { erro: `${etapa.nome}: nenhum candidato pode ser usado${motivos ? ` (${motivos})` : ''}.` };
       }
@@ -390,6 +403,19 @@ export class Motor {
       return { ...comum, modelo: pegar(melhor), origem: 'pontuacao', motivo };
     }
     return { erro: `${etapa.nome}: etapa sem agente configurado.` };
+  }
+
+  /** Provedores com alguma janela de cota acima do limite configurado → motivo. */
+  cotasEstouradas(): Map<IdProvedor, string> {
+    const limite = this.limites().cotaMaxima;
+    const saida = new Map<IdProvedor, string>();
+    if (limite === null) return saida;
+    for (const c of cotasVigentes(this.db)) {
+      if (c.utilizacao * 100 < limite || saida.has(c.provedor)) continue;
+      const reinicio = c.reiniciaEm ? `, reinicia ${new Date(c.reiniciaEm).toLocaleString('pt-BR')}` : '';
+      saida.set(c.provedor, `cota ${c.janela} em ${Math.round(c.utilizacao * 100)}% (limite ${limite}%${reinicio})`);
+    }
+    return saida;
   }
 
   // ---------- capacidade ----------
@@ -423,6 +449,7 @@ export class Motor {
     let escolha: Escolha | null = null;
     if (usaAgente) {
       const r = this.escolherModelo(etapa, p, tarefa, tentativa);
+      if ('esperar' in r) return; // fica na fila até a cota reiniciar
       if ('erro' in r) {
         this.bloquear(p.id, tarefa, idx, r.erro);
         return;
@@ -678,6 +705,7 @@ export class Motor {
         const msg = 'Parecer em formato inválido (esperado {"aprovado": bool, "problemas": [...]}).';
         return this.finalizar(execId, { tipo: 'falha', feedback: msg }, { saidaTexto: texto, erro: msg, formatoInvalido: true });
       }
+      gravarItensParecer(this.db, execId, r.data);
       if (r.data.aprovado) return this.finalizar(execId, { tipo: 'ok' }, { saidaTexto: texto, saida: r.data });
       return this.finalizar(
         execId,

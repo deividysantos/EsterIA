@@ -28,14 +28,17 @@ function Limites() {
   const fila = useQuery({ queryKey: ['fila'], queryFn: api.fila });
   const [global, setGlobal] = useState('');
   const [porProvedor, setPorProvedor] = useState('');
+  const [cota, setCota] = useState('');
   useEffect(() => {
     if (fila.data) {
       setGlobal(String(fila.data.limites.global));
       setPorProvedor(String(fila.data.limites.porProvedor));
+      setCota(fila.data.limites.cotaMaxima === null ? '' : String(fila.data.limites.cotaMaxima));
     }
-  }, [fila.data?.limites.global, fila.data?.limites.porProvedor]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fila.data?.limites.global, fila.data?.limites.porProvedor, fila.data?.limites.cotaMaxima]); // eslint-disable-line react-hooks/exhaustive-deps
   const salvar = useMutation({
-    mutationFn: () => api.definirLimites({ global: Number(global), porProvedor: Number(porProvedor) }),
+    mutationFn: () =>
+      api.definirLimites({ global: Number(global), porProvedor: Number(porProvedor), cotaMaxima: cota.trim() ? Number(cota) : null }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['fila'] }),
   });
   return (
@@ -53,6 +56,10 @@ function Limites() {
         <label>
           Por provedor
           <input type="number" min={1} max={20} value={porProvedor} onChange={(e) => setPorProvedor(e.target.value)} />
+        </label>
+        <label>
+          Parar provedor com cota acima de (%)
+          <input type="number" min={1} max={100} value={cota} placeholder="desligado" onChange={(e) => setCota(e.target.value)} />
         </label>
         <button disabled={salvar.isPending} onClick={() => salvar.mutate()}>
           Salvar
@@ -118,6 +125,23 @@ export function Fila() {
           </ul>
         )}
       </div>
+      {f && f.cotas.length > 0 && (
+        <div className="bloco">
+          <h2>Provedores parados por cota</h2>
+          <ul className="lista-fila">
+            {f.cotas.map((c) => (
+              <li key={`${c.provedor}-${c.janela}`} className="item-fila">
+                <span className="forte">{c.provedor}</span> · janela {c.janela} em {Math.round(c.utilizacao * 100)}%
+                <div className="mudo pequeno">
+                  {c.reiniciaEm
+                    ? `Volta a receber etapas quando a cota reiniciar (${new Date(c.reiniciaEm).toLocaleString('pt-BR')}).`
+                    : 'Sem horário de reinício informado.'}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="bloco">
         <h2>Rodando</h2>
         {f && !f.rodando.length ? <p className="mudo">Nada rodando.</p> : <ul className="lista-fila">{f?.rodando.map((i) => <Item key={i.execucao.id} i={i} />)}</ul>}

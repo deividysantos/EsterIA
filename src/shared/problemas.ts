@@ -139,7 +139,26 @@ export interface DetalheProblema {
   tarefas: Tarefa[];
   execucoes: Execucao[];
   decisoes: DecisaoModelo[];
+  itensParecer: ItemParecer[];
 }
+
+export type DecisaoItem = 'procede' | 'nao_procede';
+
+/** Um ponto de um parecer (revisão ou crítica), com a sua avaliação para medir a precisão do revisor. */
+export interface ItemParecer {
+  id: number;
+  execucaoId: number;
+  indice: number;
+  arquivo: string;
+  linha: number | null;
+  severidade: 'alta' | 'media' | 'baixa';
+  descricao: string;
+  sugestao: string;
+  decisao: DecisaoItem | null;
+  decididoEm: string | null;
+}
+
+export const decisaoItemSchema = z.object({ decisao: z.enum(['procede', 'nao_procede']).nullable() });
 
 export interface ItemFila {
   execucao: Execucao;
@@ -151,6 +170,15 @@ export interface ItemFila {
 export interface LimitesFila {
   global: number;
   porProvedor: number;
+  /** Acima deste % de uso de qualquer janela de cota, o provedor não recebe etapas novas (null = desligado). */
+  cotaMaxima: number | null;
+}
+
+export interface CotaBloqueando {
+  provedor: string;
+  janela: string;
+  utilizacao: number;
+  reiniciaEm: string | null;
 }
 
 export interface EstadoFila {
@@ -158,6 +186,8 @@ export interface EstadoFila {
   rodando: ItemFila[];
   aguardandoVoce: ItemFila[];
   bloqueados: ResumoProblema[];
+  /** Provedores parados por cota acima do limite. */
+  cotas: CotaBloqueando[];
   /** Problemas com próximo passo pronto, esperando vaga. */
   naFila: number;
 }
@@ -186,4 +216,5 @@ export type AcaoProblema = z.infer<typeof acaoProblemaSchema>['acao'];
 export const limitesSchema = z.object({
   global: z.number().int().min(1).max(20),
   porProvedor: z.number().int().min(1).max(20),
+  cotaMaxima: z.number().int().min(1).max(100).nullable().default(95),
 });

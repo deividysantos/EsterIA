@@ -1,8 +1,8 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
-import type { AcaoProblema, DetalheProblema, EstadoExecucao, EstadoTarefa, Execucao, Plano } from '../../shared/problemas';
+import type { AcaoProblema, DecisaoItem, DetalheProblema, EstadoExecucao, EstadoTarefa, Execucao, ItemParecer, Plano } from '../../shared/problemas';
 import type { DecisaoModelo } from '../../shared/criterios';
 import { api } from '../api';
 import { useAoVivo } from '../aoVivo';
@@ -134,7 +134,53 @@ const ROTULO_ORIGEM: Record<DecisaoModelo['origem'], string> = {
   escalada: 'troca de modelo por tentativa',
 };
 
-function LinhaExecucao({ e, decisao }: { e: Execucao; decisao: DecisaoModelo | undefined }) {
+const ROTULO_SEV = { alta: 'alta', media: 'média', baixa: 'baixa' } as const;
+
+function ItensParecer({ itens }: { itens: ItemParecer[] }) {
+  const qc = useQueryClient();
+  const decidir = useMutation({
+    mutationFn: ({ id, decisao }: { id: number; decisao: DecisaoItem | null }) => api.decidirItem(id, decisao),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['problema'] }),
+  });
+  return (
+    <div className="itens-parecer">
+      <div className="pequeno forte">Pontos do parecer · marque se procedem (mede a precisão do revisor)</div>
+      <ol>
+        {itens.map((i) => (
+          <li key={i.id} className={`item-parecer${i.decisao ? ` item-${i.decisao}` : ''}`}>
+            <div>
+              <span className={`sev sev-${i.severidade}`}>{ROTULO_SEV[i.severidade]}</span>{' '}
+              {i.arquivo && (
+                <span className="mono pequeno">
+                  {i.arquivo}
+                  {i.linha ? `:${i.linha}` : ''}
+                </span>
+              )}{' '}
+              {i.descricao}
+              {i.sugestao && <div className="mudo pequeno">Sugestão: {i.sugestao}</div>}
+            </div>
+            <div className="botoes-item" role="group" aria-label="Avaliação do ponto">
+              {(['procede', 'nao_procede'] as const).map((d) => (
+                <button
+                  key={d}
+                  className={i.decisao === d ? 'pequeno' : 'secundario pequeno'}
+                  aria-pressed={i.decisao === d}
+                  disabled={decidir.isPending}
+                  onClick={() => decidir.mutate({ id: i.id, decisao: i.decisao === d ? null : d })}
+                >
+                  {d === 'procede' ? 'Procede' : 'Não procede'}
+                </button>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ol>
+      {decidir.isError && <p className="erro pequeno">{(decidir.error as Error).message}</p>}
+    </div>
+  );
+}
+
+function LinhaExecucao({ e, decisao, itens }: { e: Execucao; decisao: DecisaoModelo | undefined; itens: ItemParecer[] }) {
   const [aberta, setAberta] = useState(false);
   const fim = e.fim ? new Date(e.fim).getTime() : Date.now();
   return (
@@ -144,6 +190,13 @@ function LinhaExecucao({ e, decisao }: { e: Execucao; decisao: DecisaoModelo | u
           <button className="link-botao" onClick={() => setAberta((v) => !v)} aria-expanded={aberta}>
             {aberta ? '▾' : '▸'} {e.etapaNome}
           </button>
+          {itens.length > 0 && (
+            <span className="mudo pequeno" title="pontos do parecer">
+              {' '}
+              · {itens.length} ponto{itens.length === 1 ? '' : 's'}
+              {itens.some((i) => !i.decisao) ? ` (${itens.filter((i) => !i.decisao).length} a avaliar)` : ''}
+            </span>
+          )}
         </td>
         <td>{e.tarefaCodigo ?? <span className="mudo">problema</span>}</td>
         <td>{e.tentativa}</td>
@@ -177,6 +230,7 @@ function LinhaExecucao({ e, decisao }: { e: Execucao; decisao: DecisaoModelo | u
               </details>
             )}
             {e.erro && <p className="erro pequeno">{e.erro}</p>}
+            {itens.length > 0 && <ItensParecer itens={itens} />}
             {e.feedback && (
               <>
                 <div className="pequeno forte">Retorno recebido</div>
@@ -351,7 +405,12 @@ export function Problema() {
               </thead>
               <tbody>
                 {d.execucoes.map((e) => (
-                  <LinhaExecucao key={e.id} e={e} decisao={d.decisoes.find((x) => x.execucaoId === e.id)} />
+                  <LinhaExecucao
+                    key={e.id}
+                    e={e}
+                    decisao={d.decisoes.find((x) => x.execucaoId === e.id)}
+                    itens={d.itensParecer.filter((x) => x.execucaoId === e.id)}
+                  />
                 ))}
               </tbody>
             </table>
