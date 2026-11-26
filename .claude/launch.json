@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "painel-v2",
+      "runtimeExecutable": "runtime/node.exe",
+      "runtimeArgs": ["bin/painel.mjs", "servidor"],
+      "port": 4710
+    },
+    {
+      "name": "painel-v2-teste",
+      "runtimeExecutable": "runtime/node.exe",
+      "runtimeArgs": ["bin/painel.mjs", "servidor", "--porta", "4799", "--banco", ".teste-dados/painel.db"],
+      "port": 4799
+    }
+  ]
+}
