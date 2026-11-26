@@ -6,6 +6,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router';
 import { Layout } from './componentes/Layout';
 import './estilos.css';
 import { EmBreve } from './paginas/EmBreve';
+import { Esteiras } from './paginas/Esteiras';
 import { Inicio } from './paginas/Inicio';
 import { Modelos } from './paginas/Modelos';
 import { Provedores } from './paginas/Provedores';
@@ -30,16 +31,8 @@ const rotas = createBrowserRouter([
       { path: 'runs', element: <Runs /> },
       { path: 'runs/:id', element: <Run /> },
       { path: 'usage', element: <Usage /> },
-      {
-        path: 'esteiras',
-        element: (
-          <EmBreve
-            titulo="Esteiras"
-            fase="F3"
-            texto="Etapas por projeto (planejar, executar, revisar, testes, aprovação humana, etapas livres), com versões e regras de retentativa."
-          />
-        ),
-      },
+      { path: 'esteiras', element: <Esteiras /> },
+      { path: 'esteiras/:projeto', element: <Esteiras /> },
       { path: '*', element: <EmBreve titulo="Página não encontrada" texto="Esse endereço não existe no painel." /> },
     ],
   },

@@ -6,6 +6,7 @@ import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 
 import type { ErroApi, Saude } from '../shared/projetos.js';
+import { rotasEsteiras } from './api/esteiras.js';
 import { rotasProjetos } from './api/projetos.js';
 import { rotasModelos, rotasProvedores } from './api/provedores.js';
 import { rotaAoVivo, rotasRuns, rotasUsage } from './api/runs.js';
@@ -106,6 +107,7 @@ export function criarApp(opcoes: OpcoesApp): Hono<Variaveis> {
   });
 
   app.route('/api/projetos', rotasProjetos());
+  app.route('/api/projetos', rotasEsteiras());
   app.route('/api/provedores', rotasProvedores());
   app.route('/api/modelos', rotasModelos());
   app.route('/api/runs', rotasRuns());

@@ -910,3 +910,340 @@ button.pequeno {
     padding-left: 4px;
   }
 }
+
+/* ---- F3: editor de esteira ---- */
+.barra-esteira {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.barra-versao,
+.barra-acoes {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.barra-versao label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--texto-mudo);
+}
+
+.barra-acoes input {
+  min-width: 240px;
+}
+
+.selo-sujo {
+  color: var(--aviso);
+  border-color: currentColor;
+}
+
+.validacao {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 8px 10px;
+  margin-bottom: 12px;
+}
+
+.validacao-item {
+  all: unset;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.validacao-item:hover,
+.validacao-item:focus-visible {
+  background: var(--superficie-2);
+}
+
+.validacao-item.aviso {
+  color: var(--aviso);
+}
+
+.esteira-colunas {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.esteira-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trecho-problema,
+.trecho-tarefa {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trecho-tarefa {
+  border: 2px dashed var(--borda);
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.trecho-rotulo {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--texto-mudo);
+  padding: 0 4px;
+}
+
+.cartao-etapa {
+  display: flex;
+  align-items: stretch;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.cartao-etapa.selecionada {
+  border-color: var(--primaria);
+  box-shadow: 0 0 0 1px var(--primaria);
+}
+
+.cartao-etapa.inativa {
+  opacity: 0.6;
+}
+
+.cartao-etapa.alvo {
+  border-top: 3px solid var(--primaria);
+}
+
+.alca {
+  cursor: grab;
+  color: var(--texto-mudo);
+  padding: 10px 2px 10px 8px;
+  user-select: none;
+}
+
+.cartao-etapa-corpo {
+  all: unset;
+  box-sizing: border-box;
+  flex: 1;
+  display: flex;
+  gap: 10px;
+  padding: 8px 6px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.cartao-etapa-corpo:focus-visible {
+  outline: 2px solid var(--primaria);
+}
+
+.cartao-etapa-num {
+  font-size: 12px;
+  color: var(--texto-mudo);
+  min-width: 16px;
+  padding-top: 1px;
+}
+
+.cartao-etapa-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.selos-etapa {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.selos-etapa .selo {
+  font-size: 11px;
+  padding: 0 6px;
+}
+
+.cartao-etapa-mover {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 6px;
+}
+
+.cartao-etapa-mover button {
+  padding: 0 6px;
+  line-height: 1.4;
+}
+
+.adicionar-etapa {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.adicionar-etapa select {
+  flex: 1;
+}
+
+.esteira-detalhe {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.editor-etapa-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.formulario-plano {
+  border: none;
+  padding: 0;
+  margin: 12px 0 0;
+  background: transparent;
+}
+
+.grupo-coluna {
+  grid-template-columns: 1fr;
+}
+
+.linha-opcoes {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.linha-opcoes label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--texto-mudo);
+}
+
+.linha-opcoes label.alternador {
+  flex-direction: row;
+  font-size: 14px;
+  color: var(--texto);
+}
+
+.crescer {
+  flex: 1;
+  min-width: 200px;
+}
+
+.candidatos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px 16px;
+}
+
+.candidatos-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.candidatos-grupo .alternador {
+  color: var(--texto);
+}
+
+.campo-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--texto-mudo);
+}
+
+.campo-prompt textarea {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.variaveis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.variavel {
+  all: unset;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--superficie-2);
+  color: var(--texto);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.variavel:hover,
+.variavel:focus-visible {
+  outline: 1px solid var(--primaria);
+}
+
+.formulario .erro.pequeno {
+  display: block;
+}
+
+.criar-esteira {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.criar-esteira p {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .esteira-colunas {
+    grid-template-columns: 1fr;
+  }
+
+  .barra-acoes input {
+    min-width: 0;
+    flex: 1;
+  }
+}
+
+.validacao-item.erro {
+  color: var(--erro);
+}
+
+.validacao-mais {
+  all: unset;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--primaria);
+  padding: 2px 4px;
+}
+
+textarea:focus,
+select:focus {
+  outline: 2px solid var(--primaria);
+  outline-offset: -1px;
+}

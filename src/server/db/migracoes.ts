@@ -188,6 +188,31 @@ export const MIGRACOES: readonly Migracao[] = [
       `);
     },
   },
+  {
+    versao: 4,
+    nome: 'esteiras versionadas',
+    aplicar(db) {
+      db.exec(`
+        CREATE TABLE esteiras (
+          projeto TEXT PRIMARY KEY REFERENCES projetos(id) ON DELETE CASCADE,
+          versao_atual INTEGER NOT NULL,
+          criado_em TEXT NOT NULL,
+          atualizado_em TEXT NOT NULL
+        ) STRICT;
+
+        -- Versões são imutáveis: cada problema guarda a versão com que começou.
+        CREATE TABLE esteira_versoes (
+          id INTEGER PRIMARY KEY,
+          projeto TEXT NOT NULL REFERENCES esteiras(projeto) ON DELETE CASCADE,
+          n INTEGER NOT NULL,
+          definicao_json TEXT NOT NULL,
+          nota TEXT NOT NULL DEFAULT '',
+          criado_em TEXT NOT NULL,
+          UNIQUE (projeto, n)
+        ) STRICT;
+      `);
+    },
+  },
 ];
 
 export const VERSAO_ESQUEMA = MIGRACOES.at(-1)?.versao ?? 0;

@@ -1,6 +1,7 @@
 import type { EdicaoProjeto, ErroApi, NovoProjeto, Projeto, Saude } from '../shared/projetos';
 import type { EdicaoModelo, IdProvedor, Modelo, NovoModelo, Provedor } from '../shared/provedores';
 import type { DetalheRun, NovoRun, RelatorioUsage, Run } from '../shared/runs';
+import type { Definicao, EsteiraProjeto, SalvarEsteira } from '../shared/esteiras';
 
 export class ErroRequisicao extends Error {
   constructor(
@@ -61,4 +62,18 @@ export const api = {
   brutoEvento: (id: string, seq: number) => pedir<unknown>(`/api/runs/${encodeURIComponent(id)}/eventos/${seq}/bruto`),
   usage: (dias: number, projeto?: string) =>
     pedir<RelatorioUsage>(`/api/usage?dias=${dias}${projeto ? `&projeto=${encodeURIComponent(projeto)}` : ''}`),
+
+  esteira: (projeto: string) => pedir<EsteiraProjeto>(`/api/projetos/${encodeURIComponent(projeto)}/esteira`),
+  criarEsteira: (projeto: string, origem: 'padrao' | { copiarDe: string }) =>
+    pedir<EsteiraProjeto>(`/api/projetos/${encodeURIComponent(projeto)}/esteira`, {
+      method: 'POST',
+      body: JSON.stringify({ origem }),
+    }),
+  salvarEsteira: (projeto: string, dados: SalvarEsteira) =>
+    pedir<EsteiraProjeto>(`/api/projetos/${encodeURIComponent(projeto)}/esteira`, {
+      method: 'PUT',
+      body: JSON.stringify(dados),
+    }),
+  versaoEsteira: (projeto: string, n: number) =>
+    pedir<Definicao>(`/api/projetos/${encodeURIComponent(projeto)}/esteira/versoes/${n}`),
 };

@@ -11,6 +11,8 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, 'dist/web'),
     emptyOutDir: true,
+    // Ferramenta local: o bundle único (com o zod da validação compartilhada) não precisa de divisão.
+    chunkSizeWarningLimit: 1000,
   },
   server: {
     port: 5173,
